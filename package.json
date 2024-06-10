@@ -1,0 +1,14 @@
+{
+  "name": "com.darknaku.director",
+  "displayName": "Director",
+  "version": "0.0.1",
+  "unity" : "2018.3",
+  "author" : "DarkNaku",
+  "description" : "DarkNaku Director Package - This package helps you manage transitions between scenes.",
+  "dependencies": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DarkNaku/Director.git"
+  }
+}
