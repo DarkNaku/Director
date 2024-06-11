@@ -69,18 +69,35 @@ namespace DarkNaku.Director
 
         public static void Change(string nextSceneName)
         {
-            Instance.StartCoroutine(Instance.CoChange(nextSceneName));
+            Instance.StartCoroutine(Instance.CoChange<SceneHandler>(nextSceneName, null));
+        }
+        
+        public static void Change<T>(string nextSceneName, Action<T> onLoadScene) where T : SceneHandler
+        {
+            Instance.StartCoroutine(Instance.CoChange(nextSceneName, onLoadScene));
         }
         
         public static void Change(string nextSceneName, string loadingName)
         {
             if (Instance._loadingTable.ContainsKey(loadingName))
             {
-                Instance.StartCoroutine(Instance.CoChange(nextSceneName, loadingName));
+                Instance.StartCoroutine(Instance.CoChange<SceneHandler>(nextSceneName, loadingName, null));
             }
             else
             {
-                Instance.StartCoroutine(Instance.CoChange(nextSceneName));
+                Change(nextSceneName);
+            }
+        }
+        
+        public static void Change<T>(string nextSceneName, string loadingName, Action<T> onLoadScene) where T : SceneHandler
+        {
+            if (Instance._loadingTable.ContainsKey(loadingName))
+            {
+                Instance.StartCoroutine(Instance.CoChange(nextSceneName, loadingName, onLoadScene));
+            }
+            else
+            {
+                Change(nextSceneName, onLoadScene);
             }
         }
 
@@ -192,7 +209,7 @@ namespace DarkNaku.Director
             _loadingTable.Add(name, loading);
         }
 
-        private IEnumerator CoChange(string nextSceneName)
+        private IEnumerator CoChange<T>(string nextSceneName, Action<T> onLoadScene) where T : SceneHandler
         {
             if (_isLoading) yield break;
 
@@ -231,7 +248,7 @@ namespace DarkNaku.Director
 
             var nextScene = SceneManager.GetSceneByName(nextSceneName);
             var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<SceneHandler>(nextScene);
+            var nextSceneHandler = FindComponent<T>(nextScene);
             var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
 
             if (nextEventSystem != null)
@@ -239,6 +256,7 @@ namespace DarkNaku.Director
                 nextEventSystem.enabled = false;
             }
 
+            onLoadScene?.Invoke(nextSceneHandler);
             nextSceneHandler?.OnEnter();
 
             if (nextSceneTransition != null)
@@ -254,7 +272,7 @@ namespace DarkNaku.Director
             _isLoading = false;
         }
 
-        private IEnumerator CoChange(string nextSceneName, string loadingName)
+        private IEnumerator CoChange<T>(string nextSceneName, string loadingName, Action<T> onLoadScene) where T : SceneHandler
         {
             if (_isLoading) yield break;
 
@@ -301,7 +319,7 @@ namespace DarkNaku.Director
             
             var nextScene = SceneManager.GetSceneByName(nextSceneName);
             var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<SceneHandler>(nextScene);
+            var nextSceneHandler = FindComponent<T>(nextScene);
             var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
             
             if (nextEventSystem != null)
@@ -309,6 +327,7 @@ namespace DarkNaku.Director
                 nextEventSystem.enabled = false;
             }
             
+            onLoadScene?.Invoke(nextSceneHandler);
             nextSceneHandler?.OnEnter();
             
             yield return CoProgressLoading(loadingProgress, 0.5f, 0.5f,
