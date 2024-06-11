@@ -11,6 +11,8 @@ Scene 사이의 전환 할 때 연출과 로딩을 표시하거나 핸들러를 
 3. https://github.com/DarkNaku/Director.git 입력하고 Add를 클릭합니다.
 
 ### 사용방법
+샘플 프로젝트를 포함하고 있으니 세부적인 구현 방법은 코드를 참고하세요.
+
 ```csharp
 Director.Change("SceneA");
 
