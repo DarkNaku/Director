@@ -9,6 +9,8 @@ namespace DarkNaku.Director
 {
     public class Director : MonoBehaviour
     {
+        [SerializeField] private List<GameObject> _loadings;
+        
         public static Director Instance
         {
             get
@@ -53,10 +55,33 @@ namespace DarkNaku.Director
         private static bool _isQuitting;
         private bool _isLoading;
         private float _minLoadingTime;
+        private Dictionary<string, ISceneLoading> _loadingTable;
+        
+        public static void RegisterLoadingFromResource(string name, string path)
+        {
+            Instance._RegisterLoadingFromResource(name, path);
+        }
+        
+        public static void RegisterLoading(string name, ISceneLoading loading)
+        {
+            Instance._RegisterLoading(name, loading);
+        }
 
         public static void Change(string nextSceneName)
         {
-            Instance.StartCoroutine(Instance.CoChange<SceneHandler>(nextSceneName));
+            Instance.StartCoroutine(Instance.CoChange(nextSceneName));
+        }
+        
+        public static void Change(string nextSceneName, string loadingName)
+        {
+            if (Instance._loadingTable.ContainsKey(loadingName))
+            {
+                Instance.StartCoroutine(Instance.CoChange(nextSceneName, loadingName));
+            }
+            else
+            {
+                Instance.StartCoroutine(Instance.CoChange(nextSceneName));
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -94,6 +119,8 @@ namespace DarkNaku.Director
             }
 
             DontDestroyOnLoad(gameObject);
+            
+            Initialize();
         }
 
         private void OnDestroy()
@@ -105,8 +132,67 @@ namespace DarkNaku.Director
         {
             _isQuitting = true;
         }
+        
+        private void Initialize()
+        {
+            _loadingTable = new Dictionary<string, ISceneLoading>();
 
-        private IEnumerator CoChange<T>(string nextSceneName) where T : SceneHandler
+            if (_loadings == null || _loadings.Count == 0) return;
+            
+            for (int i = 0; i < _loadings.Count; i++)
+            {
+                if (_loadings[i] == null) continue;
+                
+                var loading = _loadings[i].GetComponent<ISceneLoading>();
+                
+                if (loading != null)
+                {
+                    loading.Initialize();
+
+                    _loadingTable.Add(_loadings[i].name, loading);
+                }
+            }
+        }
+        
+        private void _RegisterLoadingFromResource(string name, string path)
+        {
+            if (_loadingTable.ContainsKey(name)) return;
+
+            var resource = Resources.Load<GameObject>(path);
+            var loadingInterface = resource?.GetComponent<ISceneLoading>();
+                
+            if (resource == null || loadingInterface == null)
+            {
+                Debug.LogWarningFormat("[Director] RegisterLoadingFromResource : Not Found Resource - {0}", name);
+                return;
+            }
+            
+            var go = Instantiate(resource);
+                
+            go.transform.SetParent(transform);
+            
+            var loading = go.GetComponent<ISceneLoading>();
+            
+            _RegisterLoading(name, loading);
+        }
+        
+        private void _RegisterLoading(string name, ISceneLoading loading)
+        {
+            if (loading == null) return;
+
+            if (_loadingTable.ContainsKey(name) || _loadingTable.ContainsValue(loading))
+            {
+                Debug.LogWarningFormat("[Director] RegisterLoading : Duplicated Loading - {0}", name);
+                return;
+            }
+            
+            loading.Initialize();
+            loading.Hide();
+
+            _loadingTable.Add(name, loading);
+        }
+
+        private IEnumerator CoChange(string nextSceneName)
         {
             if (_isLoading) yield break;
 
@@ -128,22 +214,7 @@ namespace DarkNaku.Director
                 currentEventSystem.enabled = false;
             }
 
-            var loadingStart = Time.time;
-            var progress = 0f;
-
-            while (progress < 1f)
-            {
-                progress = ao.progress / 0.9f;
-                
-                if (_minLoadingTime > 0f)
-                {
-                    progress = Mathf.Min((Time.time - loadingStart) / _minLoadingTime, progress);
-                }
-                
-                currentLoadingProgress?.OnProgress(progress);
-                
-                yield return null;
-            }
+            yield return CoProgressLoading(currentLoadingProgress, 0f, 1f, () => ao.progress / 0.9f);
 
             currentLoadingProgress?.OnProgress(1f);
 
@@ -160,7 +231,7 @@ namespace DarkNaku.Director
 
             var nextScene = SceneManager.GetSceneByName(nextSceneName);
             var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<T>(nextScene);
+            var nextSceneHandler = FindComponent<SceneHandler>(nextScene);
             var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
 
             if (nextEventSystem != null)
@@ -183,8 +254,7 @@ namespace DarkNaku.Director
             _isLoading = false;
         }
 
-/*
-        private IEnumerator CoChange<T>(string nextSceneName, string loadingName, Action<T> onLoadScene) where T : SceneHandler
+        private IEnumerator CoChange(string nextSceneName, string loadingName)
         {
             if (_isLoading) yield break;
 
@@ -210,6 +280,8 @@ namespace DarkNaku.Director
             var loadingTransition = loading as ISceneTransition;
             var loadingProgress = loading as ILoadingProgress;
             
+            loading.Show();
+            
             if (loadingTransition != null)
             {
                 yield return loadingTransition.CoTransitionIn(nextSceneName);
@@ -219,22 +291,7 @@ namespace DarkNaku.Director
 
             ao.allowSceneActivation = false;
 
-            var loadingStart = Time.time;
-            var progress = 0f;
-
-            while (progress < 1f)
-            {
-                progress = ao.progress / 0.9f;
-                
-                if (_minLoadingTime > 0f)
-                {
-                    progress = Mathf.Min((Time.time - loadingStart) / (_minLoadingTime * 0.5f), progress);
-                }
-                
-                loadingProgress?.OnProgress(progress * 0.5f);
-                
-                yield return null;
-            }
+            yield return CoProgressLoading(loadingProgress, 0f, 0.5f, () => ao.progress / 0.9f);
 
             currentSceneHandler?.OnExit();
 
@@ -244,7 +301,7 @@ namespace DarkNaku.Director
             
             var nextScene = SceneManager.GetSceneByName(nextSceneName);
             var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<T>(nextScene);
+            var nextSceneHandler = FindComponent<SceneHandler>(nextScene);
             var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
             
             if (nextEventSystem != null)
@@ -252,31 +309,17 @@ namespace DarkNaku.Director
                 nextEventSystem.enabled = false;
             }
             
-            onLoadScene?.Invoke(nextSceneHandler);
-            
             nextSceneHandler?.OnEnter();
             
-            loadingStart = Time.time;
-            progress = 0f;
-
-            while (progress < 1f)
-            {
-                progress = Mathf.Min(1f, nextSceneHandler?.Progress ?? 1f);
-                
-                if (_minLoadingTime > 0f)
-                {
-                    progress = Mathf.Min((Time.time - loadingStart) / (_minLoadingTime * 0.5f), progress);
-                }
-                
-                loadingProgress?.OnProgress((progress * 0.5f) + 0.5f);
-                
-                yield return null;
-            }
+            yield return CoProgressLoading(loadingProgress, 0.5f, 0.5f,
+                () => Mathf.Min(1f, nextSceneHandler?.Progress ?? 1f));
             
             if (loadingTransition != null)
             {
                 yield return loadingTransition.CoTransitionOut(currentSceneName);
             }
+            
+            loading.Hide();
 
             if (nextSceneTransition != null)
             {
@@ -290,7 +333,26 @@ namespace DarkNaku.Director
 
             _isLoading = false;
         }
-*/
+
+        private IEnumerator CoProgressLoading(ILoadingProgress loadingProgress, float start, float progressRate, Func<float> getProgress)
+        {
+            var loadingStart = Time.time;
+            var progress = 0f;
+
+            while (progress < 1f)
+            {
+                progress = getProgress();
+                
+                if (_minLoadingTime > 0f)
+                {
+                    progress = Mathf.Min((Time.time - loadingStart) / (_minLoadingTime * progressRate), progress);
+                }
+                
+                loadingProgress?.OnProgress(start + (progress * progressRate));
+                
+                yield return null;
+            }
+        }
         
         private EventSystem GetEventSystemInScene(Scene scene)
         {
