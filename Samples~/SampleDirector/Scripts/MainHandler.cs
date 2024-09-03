@@ -5,16 +5,16 @@ using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MainHandler : SceneHandler, ILoadingProgress
+public class MainHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
 {
     [SerializeField] private Slider _slider;
     
-    public override void OnEnter()
+    public void OnEnter()
     {
         Debug.Log("[Main] OnEnter");
     }
     
-    public override void OnExit()
+    public void OnExit()
     {
         Debug.Log("[Main] OnExit");
     }
@@ -26,13 +26,11 @@ public class MainHandler : SceneHandler, ILoadingProgress
 
     public void OnClickButtonWithLoading()
     {
-        Director.MinLoadingTime = 2f;
-        Director.Change("SceneA", "Loading");
+        Director.Change("SceneA").WithLoading("Loading").SetMinLoadingTime(2f);
     }
     
     public void OnClickButtonWithoutLoading()
     {
-        Director.MinLoadingTime = 2f;
         Director.Change("SceneA");
     }
     

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,17 +9,17 @@ public class Fader : MonoBehaviour, ISceneTransition
 {
     [SerializeField] private Image _imageFader;
     
-    public IEnumerator CoTransitionIn(string prevSceneName)
+    public async Task TransitionIn(string prevSceneName)
     {
-        yield return CoFade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
+        await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
     }
 
-    public IEnumerator CoTransitionOut(string nextSceneName)
+    public async Task TransitionOut(string nextSceneName)
     {
-        yield return CoFade(new Color(0f, 0f, 0f, 0f), Color.black, 0.5f);
+        await Fade(new Color(0f, 0f, 0f, 0f), Color.black, 0.5f);
     }
 
-    private IEnumerator CoFade(Color start, Color end, float duration)
+    private async Task Fade(Color start, Color end, float duration)
     {
         _imageFader.color = start;
         
@@ -28,7 +29,9 @@ public class Fader : MonoBehaviour, ISceneTransition
         {
             _imageFader.color = Color.Lerp(start, end, elapsed / duration);
             elapsed += Time.deltaTime;
-            yield return null;
+            await Task.Yield();
         }
+        
+        _imageFader.color = end;
     }
 }

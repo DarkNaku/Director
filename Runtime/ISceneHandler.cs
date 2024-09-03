@@ -2,7 +2,7 @@ namespace DarkNaku.Director
 {
     public interface ISceneHandler
     {
-        public float Progress { get; }
+        public float Progress => 1f;
 
         public void OnEnter()
         {

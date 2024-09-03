@@ -16,14 +16,15 @@ Scene 사이의 전환 할 때 연출과 로딩을 표시하거나 핸들러를 
 ```csharp
 Director.Change("SceneA");
 
-Director.Change("SceneB", "Loading");
+Director.Change("SceneA").WithLoading("Loading");
+
+Director.Change("SceneA").WithLoading("Loading").SetMinLoadingTime(2f);
 ```
 
 ### 기능
 * 로딩 화면 표시 가능
 * 로딩 진행 상황 표시 가능
 * 장면 사이 전환 효과 표현 가능
-* 다음 장면 핸들러에 데이터 전달 가능
 
 ### 추가설명
 * 전환간 Additive Scene을 더하고 빼는 기능은 추가 예정입니다.

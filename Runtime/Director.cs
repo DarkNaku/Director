@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -44,17 +46,12 @@ namespace DarkNaku.Director
             }
         }
 
-        public static float MinLoadingTime
-        {
-            get => Instance._minLoadingTime;
-            set => Instance._minLoadingTime = value;
-        }
-
         private static readonly object _lock = new();
         private static Director _instance;
         private static bool _isQuitting;
         private bool _isLoading;
         private float _minLoadingTime;
+        private ISceneLoading _sceneLoading;
         private Dictionary<string, ISceneLoading> _loadingTable;
         
         public static void RegisterLoadingFromResource(string name, string path)
@@ -67,44 +64,72 @@ namespace DarkNaku.Director
             Instance._RegisterLoading(name, loading);
         }
 
-        public static void Change(string nextSceneName)
+        public static Director Change(string sceneName)
         {
-            Instance.StartCoroutine(Instance.CoChange(nextSceneName, null));
+            _ = Instance._Change(sceneName);
+            
+            return Instance;
         }
         
-        public static void Change(string nextSceneName, string loadingName)
+        public Director WithLoading(string loadingName)
         {
-            if (Instance._loadingTable.ContainsKey(loadingName))
+            if (_loadingTable.TryGetValue(loadingName, out _sceneLoading) == false)
             {
-                Instance.StartCoroutine(Instance.CoChange(nextSceneName, loadingName));
+                _sceneLoading = null;
+                
+                Debug.LogErrorFormat("[Director] Can't found loading - {0}", loadingName);
             }
-            else
-            {
-                Change(nextSceneName);
-            }
+            
+            return Instance;
         }
         
+        public Director SetMinLoadingTime(float minLoadingTime)
+        {
+            _minLoadingTime = minLoadingTime;
+            
+            return Instance;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void OnSubSystemRegistration()
         {
             _instance = null;
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void OnAfterSceneLoad()
         {
             var currentScene = SceneManager.GetActiveScene();
             var currentSceneHandler = Instance.FindComponent<ISceneHandler>(currentScene);
-            var currentSceneTransition = Instance.FindComponent<ISceneTransition>(currentScene);
             
             currentSceneHandler?.OnEnter();
 
-            if (currentSceneTransition != null)
+            _ = TransitionIn(currentScene);
+
+            return;
+
+            async Task TransitionIn(Scene scene)
             {
-                Instance.StartCoroutine(currentSceneTransition.CoTransitionIn(null));
+                var sceneTransition = Instance.FindComponent<ISceneTransition>(scene);
+
+                if (sceneTransition == null) return;
+                
+                var eventSystem = Instance.GetEventSystemInScene(scene);
+                
+                if (eventSystem != null)
+                {
+                    eventSystem.enabled = false;
+                }
+                
+                await sceneTransition.TransitionIn(null);
+                    
+                if (eventSystem != null)
+                {
+                    eventSystem.enabled = true;
+                }
             }
         }
-
+        
         private void Awake()
         {
             if (_instance == null)
@@ -192,138 +217,90 @@ namespace DarkNaku.Director
             _loadingTable.Add(name, loading);
         }
 
-        private IEnumerator CoChange(string nextSceneName)
+        private async Task _Change(string sceneName)
         {
-            if (_isLoading) yield break;
+            if (_isLoading) return;
 
             _isLoading = true;
+            _sceneLoading = null;
+            _minLoadingTime = 0f;
 
             var currentScene = SceneManager.GetActiveScene();
             var currentEventSystem = GetEventSystemInScene(currentScene);
-            var currentSceneHandler = FindComponent<ISceneHandler>(currentScene);
-            var currentSceneTransition = FindComponent<ISceneTransition>(currentScene);
-            var currentLoadingProgress = FindComponent<ILoadingProgress>(currentScene);
+            var currentHandler = FindComponent<ISceneHandler>(currentScene);
+            var currentTransition = FindComponent<ISceneTransition>(currentScene);
             var currentSceneName = currentScene.name;
-
-            var ao = SceneManager.LoadSceneAsync(nextSceneName);
-
-            ao.allowSceneActivation = false;
 
             if (currentEventSystem != null)
             {
                 currentEventSystem.enabled = false;
             }
-
-            yield return CoProgressLoading(currentLoadingProgress, 0f, 1f, () => ao.progress / 0.9f);
-
-            currentLoadingProgress?.OnProgress(1f);
-
-            if (currentSceneTransition != null)
-            {
-                yield return currentSceneTransition.CoTransitionOut(nextSceneName);
-            }
-
-            currentSceneHandler?.OnExit();
-
-            ao.allowSceneActivation = true;
-
-            yield return new WaitUntil(() => ao.isDone);
-
-            var nextScene = SceneManager.GetSceneByName(nextSceneName);
-            var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<ISceneHandler>(nextScene);
-            var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
-
-            if (nextEventSystem != null)
-            {
-                nextEventSystem.enabled = false;
-            }
-
-            nextSceneHandler?.OnEnter();
-
-            if (nextSceneTransition != null)
-            {
-                yield return nextSceneTransition.CoTransitionIn(currentSceneName);
-            }
-
-            if (nextEventSystem != null)
-            {
-                nextEventSystem.enabled = true;
-            }
-
-            _isLoading = false;
-        }
-
-        private IEnumerator CoChange(string nextSceneName, string loadingName)
-        {
-            if (_isLoading) yield break;
-
-            _isLoading = true;
-
-            var currentScene = SceneManager.GetActiveScene();
-            var currentEventSystem = GetEventSystemInScene(currentScene);
-            var currentSceneHandler = FindComponent<ISceneHandler>(currentScene);
-            var currentSceneTransition = FindComponent<ISceneTransition>(currentScene);
-            var currentSceneName = currentScene.name;
             
-            if (currentEventSystem != null)
+            await Task.Yield();
+            
+            if (currentTransition != null)
             {
-                currentEventSystem.enabled = false;
+                await currentTransition.TransitionOut(sceneName);
             }
             
-            if (currentSceneTransition != null)
+            if (_sceneLoading != null)
             {
-                yield return currentSceneTransition.CoTransitionOut(nextSceneName);
-            }
+                _sceneLoading?.Show();
 
-            var loading = _loadingTable[loadingName];
-            var loadingTransition = loading as ISceneTransition;
-            var loadingProgress = loading as ILoadingProgress;
-            
-            loading.Show();
-            
-            if (loadingTransition != null)
-            {
-                yield return loadingTransition.CoTransitionIn(nextSceneName);
+                if (_sceneLoading is ISceneTransition loadingTransition)
+                {
+                    await loadingTransition.TransitionIn(sceneName);
+                }
             }
             
-            var ao = SceneManager.LoadSceneAsync(nextSceneName);
+            var ao = SceneManager.LoadSceneAsync(sceneName);
 
             ao.allowSceneActivation = false;
 
-            yield return CoProgressLoading(loadingProgress, 0f, 0.5f, () => ao.progress / 0.9f);
+            if (_sceneLoading != null)
+            {
+                if (_sceneLoading is ILoadingProgress loadingProgress)
+                {
+                    await Progress(loadingProgress, 0f, 0.5f, () => ao.progress / 0.9f);
+                }
+            }
 
-            currentSceneHandler?.OnExit();
+            currentHandler?.OnExit();
 
             ao.allowSceneActivation = true;
+
+            while (!ao.isDone) await Task.Yield();
             
-            yield return new WaitUntil(() => ao.isDone);
-            
-            var nextScene = SceneManager.GetSceneByName(nextSceneName);
+            var nextScene = SceneManager.GetSceneByName(sceneName);
             var nextEventSystem = GetEventSystemInScene(nextScene);
-            var nextSceneHandler = FindComponent<ISceneHandler>(nextScene);
-            var nextSceneTransition = FindComponent<ISceneTransition>(nextScene);
-            
+            var nextHandler = FindComponent<ISceneHandler>(nextScene);
+            var nextTransition = FindComponent<ISceneTransition>(nextScene);
+
             if (nextEventSystem != null)
             {
                 nextEventSystem.enabled = false;
             }
             
-            nextSceneHandler?.OnEnter();
+            nextHandler?.OnEnter();
             
-            yield return CoProgressLoading(loadingProgress, 0.5f, 0.5f,
-                () => Mathf.Min(1f, nextSceneHandler?.Progress ?? 1f));
-            
-            if (loadingTransition != null)
+            if (_sceneLoading != null)
             {
-                yield return loadingTransition.CoTransitionOut(currentSceneName);
-            }
-            
-            loading.Hide();
+                if (_sceneLoading is ILoadingProgress loadingProgress)
+                {
+                    await Progress(loadingProgress, 0.5f, 0.5f, () => nextHandler?.Progress ?? 1f);
+                }
 
-            if (nextSceneTransition != null)
+                if (_sceneLoading is ISceneTransition loadingTransition)
+                {
+                    await loadingTransition.TransitionOut(sceneName);
+                }
+            
+                _sceneLoading.Hide();
+            }
+
+            if (nextTransition != null)
             {
-                yield return nextSceneTransition.CoTransitionIn(currentSceneName);
+                await nextTransition.TransitionIn(currentSceneName);
             }
             
             if (nextEventSystem != null)
@@ -334,27 +311,34 @@ namespace DarkNaku.Director
             _isLoading = false;
         }
 
-        private IEnumerator CoProgressLoading(ILoadingProgress loadingProgress, float start, float progressRate, Func<float> getProgress)
+        private async Task Progress(ILoadingProgress loadingProgress, float start, float length, Func<float> getProgress)
         {
-            var loadingStart = Time.time;
+            var loadingStart = Time.realtimeSinceStartup;
             var progress = 0f;
-
+            
+            start = Mathf.Clamp01(start);
+            length = Mathf.Min(1f - start, length);
+            
+            var minLoadingTime = _minLoadingTime * length;
+            
             while (progress < 1f)
             {
                 progress = getProgress();
                 
-                if (_minLoadingTime > 0f)
+                if (minLoadingTime > 0f)
                 {
-                    progress = Mathf.Min((Time.time - loadingStart) / (_minLoadingTime * progressRate), progress);
+                    var elapsed = Time.realtimeSinceStartup - loadingStart;
+                    
+                    progress = Mathf.Min(elapsed / minLoadingTime, progress);
                 }
                 
-                loadingProgress?.OnProgress(start + (progress * progressRate));
+                loadingProgress?.OnProgress(start + (progress * length));
                 
-                yield return null;
+                await Task.Yield();
             }
         }
         
-        private EventSystem GetEventSystemInScene(Scene scene)
+        public EventSystem GetEventSystemInScene(Scene scene)
         {
             EventSystem[] ess = FindObjectsOfType<EventSystem>();
 
@@ -366,7 +350,7 @@ namespace DarkNaku.Director
             return null;
         }
 
-        private T FindComponent<T>(Scene scene) where T : class
+        public T FindComponent<T>(Scene scene) where T : class
         {
             GameObject[] goes = scene.GetRootGameObjects();
 
