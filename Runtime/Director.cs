@@ -54,9 +54,9 @@ namespace DarkNaku.Director
         private ISceneLoading _sceneLoading;
         private Dictionary<string, ISceneLoading> _loadingTable;
         
-        public static void RegisterLoadingFromResource(string name, string path)
+        public static void RegisterLoadingBuiltIn(string name, string path)
         {
-            Instance._RegisterLoadingFromResource(name, path);
+            Instance._RegisterLoadingBuiltIn(name, path);
         }
         
         public static void RegisterLoading(string name, ISceneLoading loading)
@@ -75,9 +75,12 @@ namespace DarkNaku.Director
         {
             if (_loadingTable.TryGetValue(loadingName, out _sceneLoading) == false)
             {
-                _sceneLoading = null;
-                
-                Debug.LogErrorFormat("[Director] Can't found loading - {0}", loadingName);
+                _sceneLoading = _RegisterLoadingBuiltIn(loadingName);
+
+                if (_sceneLoading == null)
+                {
+                    Debug.LogErrorFormat("[Director] Can't found loading - {0}", loadingName);
+                }
             }
             
             return Instance;
@@ -179,42 +182,49 @@ namespace DarkNaku.Director
             }
         }
         
-        private void _RegisterLoadingFromResource(string name, string path)
+        private ISceneLoading _RegisterLoadingBuiltIn(string name, string path = null)
         {
-            if (_loadingTable.ContainsKey(name)) return;
+            if (string.IsNullOrEmpty(path)) path = name;
+            
+            if (_loadingTable.ContainsKey(name)) return null;
 
             var resource = Resources.Load<GameObject>(path);
             var loadingInterface = resource?.GetComponent<ISceneLoading>();
                 
             if (resource == null || loadingInterface == null)
             {
-                Debug.LogWarningFormat("[Director] RegisterLoadingFromResource : Not Found Resource - {0}", name);
-                return;
+                Debug.LogWarningFormat("[Director] RegisterLoadingBuiltIn : Can't found loading from resource - {0}", name);
+                return null;
             }
             
             var go = Instantiate(resource);
                 
             go.transform.SetParent(transform);
-            
-            var loading = go.GetComponent<ISceneLoading>();
-            
-            _RegisterLoading(name, loading);
+
+            if (go.TryGetComponent<ISceneLoading>(out var sceneLoading))
+            {
+                _RegisterLoading(name, sceneLoading);
+
+                return sceneLoading;
+            }
+
+            return null;
         }
         
-        private void _RegisterLoading(string name, ISceneLoading loading)
+        private void _RegisterLoading(string name, ISceneLoading sceneLoading)
         {
-            if (loading == null) return;
+            if (sceneLoading == null) return;
 
-            if (_loadingTable.ContainsKey(name) || _loadingTable.ContainsValue(loading))
+            if (_loadingTable.ContainsKey(name) || _loadingTable.ContainsValue(sceneLoading))
             {
-                Debug.LogWarningFormat("[Director] RegisterLoading : Duplicated Loading - {0}", name);
+                Debug.LogWarningFormat("[Director] RegisterLoading : Duplicated - {0}", name);
                 return;
             }
             
-            loading.Initialize();
-            loading.Hide();
+            sceneLoading.Initialize();
+            sceneLoading.Hide();
 
-            _loadingTable.Add(name, loading);
+            _loadingTable.Add(name, sceneLoading);
         }
 
         private async Task _Change(string sceneName)
@@ -229,6 +239,7 @@ namespace DarkNaku.Director
             var currentEventSystem = GetEventSystemInScene(currentScene);
             var currentHandler = FindComponent<ISceneHandler>(currentScene);
             var currentTransition = FindComponent<ISceneTransition>(currentScene);
+            var sceneProgress = FindComponent<ILoadingProgress>(currentScene);
             var currentSceneName = currentScene.name;
 
             if (currentEventSystem != null)
@@ -238,6 +249,18 @@ namespace DarkNaku.Director
             
             await Task.Yield();
             
+            var ao = SceneManager.LoadSceneAsync(sceneName);
+
+            ao.allowSceneActivation = false;
+            
+            if (_sceneLoading == null)
+            {
+                if (sceneProgress != null)
+                {
+                    await Progress(sceneProgress, 0f, 1f, () => ao.progress / 0.9f);
+                }
+            }
+
             if (currentTransition != null)
             {
                 await currentTransition.TransitionOut(sceneName);
@@ -253,10 +276,6 @@ namespace DarkNaku.Director
                 }
             }
             
-            var ao = SceneManager.LoadSceneAsync(sceneName);
-
-            ao.allowSceneActivation = false;
-
             if (_sceneLoading != null)
             {
                 if (_sceneLoading is ILoadingProgress loadingProgress)
