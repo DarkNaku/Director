@@ -159,6 +159,11 @@ namespace DarkNaku.Director
         private void OnApplicationQuit()
         {
             _isQuitting = true;
+
+            var currentScene = SceneManager.GetActiveScene();
+            var currentSceneHandler = FindComponent<ISceneHandler>(currentScene);
+            
+            currentSceneHandler?.OnExit();
         }
         
         private void Initialize()
