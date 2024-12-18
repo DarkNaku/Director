@@ -96,6 +96,7 @@ namespace DarkNaku.Director
         private static void OnSubSystemRegistration()
         {
             _instance = null;
+            _isQuitting = false;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
