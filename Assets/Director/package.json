@@ -1,18 +1,11 @@
 {
   "name": "com.darknaku.director",
-  "version": "0.2.4",
+  "version": "0.5.0",
   "displayName": "Director",
   "description": "DarkNaku Director Package - This package helps you manage transitions between scenes.",
   "unity": "2018.3",
   "author": {
     "name": "DarkNaku",
     "url": "https://github.com/DarkNaku"
-  },
-  "samples": [
-    {
-      "displayName": "Director",
-      "description": "Director Example",
-      "path": "Samples~/SampleDirector"
-    }
-  ]
+  }
 }

@@ -1,15 +1,9 @@
-namespace DarkNaku.Director
-{
-    public interface ISceneHandler
-    {
-        public float Progress => 1f;
-
-        public void OnEnter()
-        {
+namespace DarkNaku.Director {
+    public interface ISceneHandler {
+        public void OnEnter() {
         }
 
-        public void OnExit()
-        {
+        public void OnExit() {
         }
     }
 }
