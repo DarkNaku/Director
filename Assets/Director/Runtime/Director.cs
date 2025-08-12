@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -8,6 +9,19 @@ using UnityEngine.SceneManagement;
 
 namespace DarkNaku.Director {
     public class Director : MonoBehaviour {
+        private sealed class Param {
+            public Type ParamType => _paramType;
+            public object Value => _value;
+            
+            private Type _paramType;
+            private object _value;
+            
+            public Param(Type paramType, object value) {
+                _paramType = paramType;
+                _value = value;
+            }
+        }
+        
         public static Director Instance {
             get {
                 if (_isDestroyed) {
@@ -36,6 +50,7 @@ namespace DarkNaku.Director {
         private bool _isSceneChanging;
         private string _loadingSceneName;
         private float _minLoadingTime;
+        private Param _param;
         
         public static Director Change(string sceneName) {
             _ = Instance._Change(sceneName);
@@ -46,6 +61,7 @@ namespace DarkNaku.Director {
         private static void OnSubSystemRegistration() {
             _instance = null;
             _isDestroyed = false;
+            _isFirstEnterCalled = false;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -58,6 +74,8 @@ namespace DarkNaku.Director {
             currentSceneHandler?.OnEnter();
 
             _ = TransitionIn(currentScene); 
+            
+            _isFirstEnterCalled = true;
             
             async Task TransitionIn(Scene scene) {
                 var sceneTransition = FindComponent<ISceneTransition>(scene);
@@ -109,6 +127,11 @@ namespace DarkNaku.Director {
             _minLoadingTime = minLoadingTime;
             return this;
         }
+
+        public Director WithParam<T>(T param) {
+            _param = new Param(typeof(T), param);
+            return this;
+        }
         
         private void Awake() {
             if (_instance != null && _instance != this) {
@@ -151,6 +174,7 @@ namespace DarkNaku.Director {
             _isSceneChanging = true;
             _loadingSceneName = null;
             _minLoadingTime = 0f;
+            _param = null;
 
             var currentScene = SceneManager.GetActiveScene();
             var currentEventSystem = GetEventSystemInScene(currentScene);
@@ -238,8 +262,36 @@ namespace DarkNaku.Director {
             if (nextEventSystem != null) {
                 nextEventSystem.enabled = false;
             }
-            
-            nextHandler?.OnEnter();
+
+            if (_param == null) {
+                nextHandler?.OnEnter();
+            } else {
+                var @interface = nextHandler.GetType()
+                    .GetInterfaces()
+                    .FirstOrDefault(i =>
+                        i.IsGenericType &&
+                        i.GetGenericTypeDefinition() == typeof(ISceneHandler<>) &&
+                        i.GetGenericArguments()[0].IsAssignableFrom(_param.ParamType));
+
+                if (@interface == null) {
+                    nextHandler?.OnEnter();
+                } else {
+                    var method = @interface.GetMethod("OnEnter");
+                    var value = _param.Value;
+
+                    if (value == null && _param.ParamType.IsValueType) {
+                        value = Activator.CreateInstance(_param.ParamType);
+                    }
+
+                    try {
+                        method?.Invoke(nextHandler, new[] { value });
+                    } catch (Exception e) {
+                        Debug.LogError($"[Director] LoadAndActiveSceneAsync : Param fail to sending. - {e}");
+                    }
+                }
+                
+                _param = null; // 더 이상 재시도하지 않음
+            }
                 
             if (nextTransition != null) await nextTransition.TransitionIn(prevSceneName, nextSceneName);
 
