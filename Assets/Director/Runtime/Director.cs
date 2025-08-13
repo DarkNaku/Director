@@ -212,6 +212,8 @@ namespace DarkNaku.Director {
                 var loadingHandler = FindComponent<ISceneHandler>(loadingScene);
                 var loadingTransition = FindComponent<ISceneTransition>(loadingScene);
                 var loadingProgress = FindComponent<ILoadingProgress>(loadingScene);
+
+                SceneManager.SetActiveScene(loadingScene);
                 
                 loadingHandler?.OnEnter();
 
@@ -258,6 +260,8 @@ namespace DarkNaku.Director {
             var nextEventSystem = GetEventSystemInScene(nextScene);
             var nextHandler = FindComponent<ISceneHandler>(nextScene);
             var nextTransition = FindComponent<ISceneTransition>(nextScene);
+            
+            SceneManager.SetActiveScene(nextScene);
                 
             if (nextEventSystem != null) {
                 nextEventSystem.enabled = false;
@@ -290,7 +294,7 @@ namespace DarkNaku.Director {
                     }
                 }
                 
-                _param = null; // 더 이상 재시도하지 않음
+                _param = null;
             }
                 
             if (nextTransition != null) await nextTransition.TransitionIn(prevSceneName, nextSceneName);
