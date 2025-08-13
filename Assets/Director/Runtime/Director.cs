@@ -285,7 +285,7 @@ namespace DarkNaku.Director {
             }
 
             if (_param == null) {
-                nextHandler?.OnEnter();
+                await nextHandler?.OnEnter();
             } else {
                 var @interface = nextHandler.GetType()
                     .GetInterfaces()
@@ -295,7 +295,7 @@ namespace DarkNaku.Director {
                         i.GetGenericArguments()[0].IsAssignableFrom(_param.ParamType));
 
                 if (@interface == null) {
-                    nextHandler?.OnEnter();
+                    await nextHandler?.OnEnter();
                 } else {
                     var method = @interface.GetMethod("OnEnter");
                     var value = _param.Value;
@@ -305,7 +305,7 @@ namespace DarkNaku.Director {
                     }
 
                     try {
-                        method?.Invoke(nextHandler, new[] { value });
+                        await (Task)method?.Invoke(nextHandler, new[] { value });
                     } catch (Exception e) {
                         Debug.LogError($"[Director] LoadAndActiveSceneAsync : Param fail to sending. - {e}");
                     }
