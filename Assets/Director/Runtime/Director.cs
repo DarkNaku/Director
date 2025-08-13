@@ -67,36 +67,34 @@ namespace DarkNaku.Director {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void OnAfterSceneLoad() {
             if (_isFirstEnterCalled) return;
-            
+
+            _ = EnterFirstScene();
+        }
+
+        private static async Task EnterFirstScene() {
             var currentScene = SceneManager.GetActiveScene();
             var currentSceneHandler = FindComponent<ISceneHandler>(currentScene);
+            var eventSystem = GetEventSystemInScene(currentScene);
+            var sceneTransition = FindComponent<ISceneTransition>(currentScene);
             
-            currentSceneHandler?.OnEnter();
+            if (eventSystem != null) {
+                eventSystem.enabled = false;
+            }
 
-            _ = TransitionIn(currentScene, currentSceneHandler); 
-            
-            _isFirstEnterCalled = true;
-            
-            async Task TransitionIn(Scene scene, ISceneHandler sceneHandler) {
-                var sceneTransition = FindComponent<ISceneTransition>(scene);
+            await currentSceneHandler?.OnEnter();
 
-                if (sceneTransition == null) return;
-                
-                var eventSystem = GetEventSystemInScene(scene);
-                
-                if (eventSystem != null) {
-                    eventSystem.enabled = false;
-                }
-                
-                sceneHandler?.OnBeforeTransitionIn();
+            if (sceneTransition != null) {
+                currentSceneHandler?.OnBeforeTransitionIn();
                 sceneTransition.PrepareTransitionIn(null, currentScene.name);
                 await sceneTransition.TransitionIn(null, currentScene.name);
-                sceneHandler?.OnAfterTransitionIn();
-                    
-                if (eventSystem != null) {
-                    eventSystem.enabled = true;
-                }
+                currentSceneHandler?.OnAfterTransitionIn();
             }
+                    
+            if (eventSystem != null) {
+                eventSystem.enabled = true;
+            }
+            
+            _isFirstEnterCalled = true;
         }
         
         private static T FindComponent<T>(Scene scene) where T : class {
