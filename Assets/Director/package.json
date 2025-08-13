@@ -1,6 +1,6 @@
 {
   "name": "com.darknaku.director",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "displayName": "Director",
   "description": "DarkNaku Director Package - This package helps you manage transitions between scenes.",
   "unity": "2018.3",
