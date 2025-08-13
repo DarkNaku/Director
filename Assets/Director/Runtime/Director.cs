@@ -73,11 +73,11 @@ namespace DarkNaku.Director {
             
             currentSceneHandler?.OnEnter();
 
-            _ = TransitionIn(currentScene); 
+            _ = TransitionIn(currentScene, currentSceneHandler); 
             
             _isFirstEnterCalled = true;
             
-            async Task TransitionIn(Scene scene) {
+            async Task TransitionIn(Scene scene, ISceneHandler sceneHandler) {
                 var sceneTransition = FindComponent<ISceneTransition>(scene);
 
                 if (sceneTransition == null) return;
@@ -88,7 +88,10 @@ namespace DarkNaku.Director {
                     eventSystem.enabled = false;
                 }
                 
+                sceneHandler?.OnBeforeTransitionIn();
+                sceneTransition.PrepareTransitionIn(null, currentScene.name);
                 await sceneTransition.TransitionIn(null, currentScene.name);
+                sceneHandler?.OnAfterTransitionIn();
                     
                 if (eventSystem != null) {
                     eventSystem.enabled = true;
@@ -199,10 +202,13 @@ namespace DarkNaku.Director {
                 while (ao.progress < 0.9f) await Task.Yield();
 
                 if (currentTransition != null) {
+                    currentHandler.OnBeforeTransitionOut();
+                    currentTransition.PrepareTransitionOut(currentSceneName, nextSceneName);
                     await currentTransition.TransitionOut(currentSceneName, nextSceneName);
+                    currentHandler.OnAfterTransitionOut();
                 }
                 
-                currentHandler?.OnExit();
+                await currentHandler?.OnExit();
                 
                 ao.allowSceneActivation = true;
 
@@ -215,10 +221,13 @@ namespace DarkNaku.Director {
 
                 SceneManager.SetActiveScene(loadingScene);
                 
-                loadingHandler?.OnEnter();
+                await loadingHandler?.OnEnter();
 
                 if (loadingTransition != null) {
+                    loadingHandler?.OnBeforeTransitionIn();
+                    loadingTransition.PrepareTransitionIn(currentSceneName, nextSceneName);
                     await loadingTransition.TransitionIn(currentSceneName, nextSceneName);
+                    loadingHandler?.OnAfterTransitionIn();
                 }
                 
                 await LoadAndActivateSceneAsync(currentSceneName, nextSceneName, loadingProgress, loadingTransition, loadingHandler);
@@ -247,7 +256,10 @@ namespace DarkNaku.Director {
             prevProgress?.OnProgress(1f);
 
             if (prevTransition != null) {
+                prevHandler?.OnBeforeTransitionOut();
+                prevTransition.PrepareTransitionOut(prevSceneName, nextSceneName);
                 await prevTransition.TransitionOut(prevSceneName, nextSceneName);
+                prevHandler?.OnAfterTransitionOut();
             }
 
             prevHandler?.OnExit();
@@ -265,6 +277,11 @@ namespace DarkNaku.Director {
                 
             if (nextEventSystem != null) {
                 nextEventSystem.enabled = false;
+            }
+            
+            if (nextTransition != null) {
+                nextHandler?.OnBeforeTransitionIn();
+                nextTransition.PrepareTransitionIn(prevSceneName, nextSceneName);
             }
 
             if (_param == null) {
@@ -296,8 +313,11 @@ namespace DarkNaku.Director {
                 
                 _param = null;
             }
-                
-            if (nextTransition != null) await nextTransition.TransitionIn(prevSceneName, nextSceneName);
+
+            if (nextTransition != null) {
+                await nextTransition.TransitionIn(prevSceneName, nextSceneName);
+                nextHandler?.OnAfterTransitionIn();
+            }
 
             if (nextEventSystem != null) {
                 nextEventSystem.enabled = true;

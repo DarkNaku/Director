@@ -3,18 +3,23 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class SecondSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress, ISceneTransition {
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public void OnEnter() {
+    public async Task OnEnter() {
         Debug.Log("[SecondScene] OnEnter");
+        var ao = Addressables.LoadSceneAsync("SubScene", LoadSceneMode.Additive);
+        while (!ao.IsDone) await Task.Yield();
     }
     
-    public void OnExit() {
+    public Task OnExit() {
         Debug.Log("[SecondScene] OnExit");
+        return Task.CompletedTask;
     }
     
     public void OnClickWithLoading() {
@@ -32,8 +37,16 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
         _slider.value = _slider.maxValue * progress;
     }
     
+    public void PrepareTransitionIn(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.black;
+    }
+    
     public async Task TransitionIn(string fromSceneName, string toSceneName) {
         await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
+    }
+    
+    public void PrepareTransitionOut(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.clear;
     }
 
     public async Task TransitionOut(string fromSceneName, string toSceneName) {

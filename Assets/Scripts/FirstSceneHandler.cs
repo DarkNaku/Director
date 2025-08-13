@@ -1,18 +1,22 @@
 using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class FirstSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress, ISceneTransition {
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public void OnEnter() {
+    public Task OnEnter() {
         Debug.Log("[FirstScene] OnEnter");
+        return Task.CompletedTask;
     }
     
-    public void OnExit() {
+    public Task OnExit() {
         Debug.Log("[FirstScene] OnExit");
+        return Task.CompletedTask;
     }
     
     public void OnClickWithLoading() {
@@ -30,8 +34,16 @@ public class FirstSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress,
         _slider.value = _slider.maxValue * progress;
     }
 
+    public void PrepareTransitionIn(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.black;
+    }
+
     public async Task TransitionIn(string fromSceneName, string toSceneName) {
         await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
+    }
+
+    public void PrepareTransitionOut(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.clear;
     }
 
     public async Task TransitionOut(string fromSceneName, string toSceneName) {

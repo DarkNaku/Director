@@ -7,19 +7,29 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public void OnEnter() {
+    public Task OnEnter() {
         Debug.Log("[LoadingScene] OnEnter");
+        return Task.CompletedTask;
     }
     
-    public void OnExit() {
+    public Task OnExit() {
         Debug.Log("[LoadingScene] OnExit");
+        return Task.CompletedTask;
     }
     public void OnProgress(float progress) {
         _slider.value = _slider.maxValue * progress;
     }
     
+    public void PrepareTransitionIn(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.black;
+    }
+    
     public async Task TransitionIn(string fromSceneName, string toSceneName) {
         await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
+    }
+    
+    public void PrepareTransitionOut(string fromSceneName, string toSceneName) {
+        _curtain.color = Color.clear;
     }
 
     public async Task TransitionOut(string fromSceneName, string toSceneName) {
