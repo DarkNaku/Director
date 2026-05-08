@@ -27,7 +27,8 @@ public class FirstSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress,
     
     public void OnClickWithoutLoading() {
         Director.Change("SecondScene")
-            .SetMinLoadingTime(2f);
+            .SetMinLoadingTime(2f)
+            .WithParam(100);
     }
     
     public void OnProgress(float progress) {

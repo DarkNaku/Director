@@ -7,12 +7,12 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public class SecondSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress, ISceneTransition {
+public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingProgress, ISceneTransition {
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public async Task OnEnter() {
-        Debug.Log("[SecondScene] OnEnter");
+    public async Task OnEnter(int x) {
+        Debug.Log($"[SecondScene] OnEnter : {x}");
         var ao = Addressables.LoadSceneAsync("SubScene", LoadSceneMode.Additive);
         while (!ao.IsDone) await Task.Yield();
     }
