@@ -1,6 +1,6 @@
 # Director 구조 다이어그램
 
-`com.darknaku.director` v0.6.3 — Unity 씬 전환 오케스트레이터의 구조를 Mermaid 다이어그램으로 정리한 문서입니다.
+`com.darknaku.director` v0.6.4 — Unity 씬 전환 오케스트레이터의 구조를 Mermaid 다이어그램으로 정리한 문서입니다.
 
 ## 1. 클래스 다이어그램
 

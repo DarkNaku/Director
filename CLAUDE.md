@@ -4,7 +4,7 @@
 
 ## 프로젝트 개요
 
-**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.6.2)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
+**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.6.4)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
 
 ## Unity 환경
 
