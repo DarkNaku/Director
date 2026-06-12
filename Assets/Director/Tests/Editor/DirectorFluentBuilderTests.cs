@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -21,7 +22,7 @@ namespace DarkNaku.Director.Tests {
         [TearDown]
         public void TearDown() {
             if (_director != null) {
-                Object.DestroyImmediate(_director.gameObject);
+                UnityEngine.Object.DestroyImmediate(_director.gameObject);
             }
 
             var instanceField = typeof(Director).GetField("_instance", BindingFlags.NonPublic | BindingFlags.Static);
@@ -66,32 +67,54 @@ namespace DarkNaku.Director.Tests {
         }
 
         [Test]
-        public void WithParam_파라미터_타입과_값_설정() {
+        public void WithParam_디스패처_설정() {
             _director.WithParam(42);
 
-            var paramField = typeof(Director).GetField("_param", BindingFlags.NonPublic | BindingFlags.Instance);
-            var param = paramField?.GetValue(_director);
+            var dispatcher = GetDispatcher(_director);
 
-            Assert.That(param, Is.Not.Null);
-
-            var paramInnerType = param.GetType();
-            var typeField = paramInnerType.GetField("Type");
-            var valueField = paramInnerType.GetField("Value");
-
-            Assert.That(typeField?.GetValue(param), Is.EqualTo(typeof(int)));
-            Assert.That(valueField?.GetValue(param), Is.EqualTo(42));
+            Assert.That(dispatcher, Is.Not.Null);
         }
 
         [Test]
-        public void WithParam_문자열_파라미터_설정() {
+        public void WithParam_정수_파라미터_제네릭_핸들러로_전달() {
+            _director.WithParam(42);
+
+            var handler = new TrackingIntHandler();
+            InvokeDispatcher(_director, handler);
+
+            Assert.That(handler.ReceivedValue, Is.EqualTo(42));
+            Assert.That(handler.OnEnterCalled, Is.False);
+        }
+
+        [Test]
+        public void WithParam_문자열_파라미터_제네릭_핸들러로_전달() {
             _director.WithParam("hello");
 
-            var paramField = typeof(Director).GetField("_param", BindingFlags.NonPublic | BindingFlags.Instance);
-            var param = paramField?.GetValue(_director);
-            var paramInnerType = param.GetType();
+            var handler = new TrackingStringHandler();
+            InvokeDispatcher(_director, handler);
 
-            Assert.That(paramInnerType.GetField("Type")?.GetValue(param), Is.EqualTo(typeof(string)));
-            Assert.That(paramInnerType.GetField("Value")?.GetValue(param), Is.EqualTo("hello"));
+            Assert.That(handler.ReceivedValue, Is.EqualTo("hello"));
+        }
+
+        [Test]
+        public void WithParam_매칭_핸들러_없으면_파라미터_없는_OnEnter_호출() {
+            _director.WithParam(42);
+
+            var handler = new TrackingNoParamHandler();
+            InvokeDispatcher(_director, handler);
+
+            Assert.That(handler.OnEnterCalled, Is.True);
+        }
+
+        [Test]
+        public void WithParam_커스텀_타입_파라미터_전달() {
+            var payload = new TestData { Id = 1, Name = "Test" };
+            _director.WithParam(payload);
+
+            var handler = new TrackingCustomHandler();
+            InvokeDispatcher(_director, handler);
+
+            Assert.That(handler.ReceivedValue, Is.SameAs(payload));
         }
 
         [Test]
@@ -112,27 +135,61 @@ namespace DarkNaku.Director.Tests {
 
             var loadingField = typeof(Director).GetField("_loadingScene", BindingFlags.NonPublic | BindingFlags.Instance);
             var minTimeField = typeof(Director).GetField("_minLoadingTime", BindingFlags.NonPublic | BindingFlags.Instance);
-            var paramField = typeof(Director).GetField("_param", BindingFlags.NonPublic | BindingFlags.Instance);
 
             Assert.That(loadingField?.GetValue(_director), Is.EqualTo("Loading"));
             Assert.That((float)minTimeField?.GetValue(_director), Is.EqualTo(3f));
-            Assert.That(paramField?.GetValue(_director), Is.Not.Null);
+
+            var handler = new TrackingIntHandler();
+            InvokeDispatcher(_director, handler);
+            Assert.That(handler.ReceivedValue, Is.EqualTo(99));
         }
 
-        [Test]
-        public void WithParam_커스텀_타입_설정() {
-            var data = new TestData { Id = 1, Name = "Test" };
-            _director.WithParam(data);
+        private static Action<ISceneHandler> GetDispatcher(Director director) {
+            var field = typeof(Director).GetField("_enterDispatcher", BindingFlags.NonPublic | BindingFlags.Instance);
+            return field?.GetValue(director) as Action<ISceneHandler>;
+        }
 
-            var paramField = typeof(Director).GetField("_param", BindingFlags.NonPublic | BindingFlags.Instance);
-            var param = paramField?.GetValue(_director);
-            var paramInnerType = param.GetType();
+        private static void InvokeDispatcher(Director director, ISceneHandler handler) {
+            var dispatcher = GetDispatcher(director);
+            Assert.That(dispatcher, Is.Not.Null, "디스패처가 설정되어 있어야 합니다");
+            dispatcher(handler);
+        }
 
-            Assert.That(paramInnerType.GetField("Type")?.GetValue(param), Is.EqualTo(typeof(TestData)));
+        private class TrackingIntHandler : ISceneHandler<int> {
+            public int ReceivedValue { get; private set; }
+            public bool OnEnterCalled { get; private set; }
 
-            var value = paramInnerType.GetField("Value")?.GetValue(param) as TestData;
-            Assert.That(value?.Id, Is.EqualTo(1));
-            Assert.That(value?.Name, Is.EqualTo("Test"));
+            public void OnEnter(int param) {
+                ReceivedValue = param;
+            }
+
+            public void OnEnter() {
+                OnEnterCalled = true;
+            }
+        }
+
+        private class TrackingStringHandler : ISceneHandler<string> {
+            public string ReceivedValue { get; private set; }
+
+            public void OnEnter(string param) {
+                ReceivedValue = param;
+            }
+        }
+
+        private class TrackingCustomHandler : ISceneHandler<TestData> {
+            public TestData ReceivedValue { get; private set; }
+
+            public void OnEnter(TestData param) {
+                ReceivedValue = param;
+            }
+        }
+
+        private class TrackingNoParamHandler : ISceneHandler {
+            public bool OnEnterCalled { get; private set; }
+
+            public void OnEnter() {
+                OnEnterCalled = true;
+            }
         }
 
         private class TestData {

@@ -13,10 +13,18 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 씬 진입 시 호출됩니다.
+        /// 씬 진입 시 동기적으로 호출됩니다.
+        /// 비동기 초기화가 필요하면 <see cref="ProcessOnEnter"/>에서 처리하세요.
         /// </summary>
-        /// <returns>초기화 완료를 나타내는 Task.</returns>
-        Task OnEnter() {
+        void OnEnter() {
+        }
+
+        /// <summary>
+        /// <see cref="OnEnter"/> 호출 후 Director가 완료를 대기하는 비동기 처리 단계입니다.
+        /// 기본 구현은 즉시 완료된 Task를 반환합니다. 비동기 초기화 작업이 있으면 이 메서드를 override하세요.
+        /// </summary>
+        /// <returns>처리 완료를 나타내는 Task.</returns>
+        Task ProcessOnEnter() {
             return Task.CompletedTask;
         }
 
@@ -33,10 +41,18 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 씬 퇴장 시 호출됩니다.
+        /// 씬 퇴장 시 동기적으로 호출됩니다.
+        /// 비동기 정리가 필요하면 <see cref="ProcessOnExit"/>에서 처리하세요.
         /// </summary>
-        /// <returns>정리 완료를 나타내는 Task.</returns>
-        Task OnExit() {
+        void OnExit() {
+        }
+
+        /// <summary>
+        /// <see cref="OnExit"/> 호출 후 Director가 완료를 대기하는 비동기 처리 단계입니다.
+        /// 기본 구현은 즉시 완료된 Task를 반환합니다. 비동기 정리 작업이 있으면 이 메서드를 override하세요.
+        /// </summary>
+        /// <returns>처리 완료를 나타내는 Task.</returns>
+        Task ProcessOnExit() {
             return Task.CompletedTask;
         }
 
@@ -54,12 +70,11 @@ namespace DarkNaku.Director {
     /// <typeparam name="T">수신할 파라미터의 타입.</typeparam>
     public interface ISceneHandler<in T> : ISceneHandler {
         /// <summary>
-        /// 타입 파라미터와 함께 씬 진입 시 호출됩니다.
+        /// 타입 파라미터와 함께 씬 진입 시 동기적으로 호출됩니다.
+        /// 비동기 초기화가 필요하면 <see cref="ISceneHandler.ProcessOnEnter"/>에서 처리하세요.
         /// </summary>
         /// <param name="param">전달받은 파라미터.</param>
-        /// <returns>초기화 완료를 나타내는 Task.</returns>
-        Task OnEnter(T param) {
-            return Task.CompletedTask;
+        void OnEnter(T param) {
         }
     }
 }

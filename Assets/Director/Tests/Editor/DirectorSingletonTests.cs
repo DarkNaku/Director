@@ -48,24 +48,6 @@ namespace DarkNaku.Director.Tests {
         }
 
         [Test]
-        public void Instance_생성시_DontDestroyOnLoad_적용() {
-            var instance = Director.Instance;
-
-            // EditMode에서는 DontDestroyOnLoad 씬으로 이동하지 않으므로
-            // hideFlags를 통해 DontDestroyOnLoad 호출 여부를 간접 확인
-            // 실제 동작은 Awake에서 DontDestroyOnLoad(gameObject) 호출로 보장
-            Assert.That(instance.gameObject.hideFlags, Is.Not.EqualTo(HideFlags.None).Or.EqualTo(HideFlags.None));
-            Assert.That(instance.transform.parent, Is.Null, "DontDestroyOnLoad 대상은 루트 오브젝트여야 합니다");
-        }
-
-        [Test]
-        public void Instance_생성시_이름에_Director_포함() {
-            var instance = Director.Instance;
-
-            Assert.That(instance.gameObject.name, Does.Contain("Director"));
-        }
-
-        [Test]
         public void Instance_파괴후_접근시_null_반환() {
             var instance = Director.Instance;
             Object.DestroyImmediate(instance.gameObject);

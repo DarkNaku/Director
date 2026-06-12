@@ -9,13 +9,21 @@ public class FirstSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress,
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public Task OnEnter() {
+    public void OnEnter() {
         Debug.Log("[FirstScene] OnEnter");
+    }
+
+    public Task ProcessOnEnter() {
+        Debug.Log("[FirstScene] ProcessOnEnter");
         return Task.CompletedTask;
     }
-    
-    public Task OnExit() {
+
+    public void OnExit() {
         Debug.Log("[FirstScene] OnExit");
+    }
+
+    public Task ProcessOnExit() {
+        Debug.Log("[FirstScene] ProcessOnExit");
         return Task.CompletedTask;
     }
     

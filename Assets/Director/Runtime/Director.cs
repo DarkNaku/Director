@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -15,19 +14,6 @@ namespace DarkNaku.Director {
     /// </summary>
     public class Director : MonoBehaviour {
         #region Inner Types
-
-        /// <summary>
-        /// 씬 전환 시 전달할 타입 파라미터를 캡슐화하는 내부 클래스.
-        /// </summary>
-        private sealed class Param {
-            public readonly Type Type;
-            public readonly object Value;
-
-            public Param(Type type, object value) {
-                Type = type;
-                Value = value;
-            }
-        }
 
         /// <summary>
         /// 씬에서 탐색한 핸들러, 트랜지션, 프로그레스, EventSystem을 묶어 전달하는 구조체.
@@ -87,7 +73,7 @@ namespace DarkNaku.Director {
         private bool _changing;
         private string _loadingScene;
         private float _minLoadingTime;
-        private Param _param;
+        private Action<ISceneHandler> _enterDispatcher;
 
         #endregion
 
@@ -126,12 +112,19 @@ namespace DarkNaku.Director {
         /// <summary>
         /// 다음 씬에 전달할 타입 파라미터를 설정합니다.
         /// 대상 씬의 핸들러가 <see cref="ISceneHandler{T}"/>를 구현해야 수신할 수 있습니다.
+        /// 값은 컴파일 타임 타입 정보를 유지하는 클로저에 캡처되어 박싱·리플렉션 없이 전달됩니다.
         /// </summary>
         /// <typeparam name="T">파라미터 타입.</typeparam>
         /// <param name="value">전달할 파라미터 값.</param>
         /// <returns>옵션 체이닝을 위한 Director 인스턴스.</returns>
         public Director WithParam<T>(T value) {
-            _param = new Param(typeof(T), value);
+            _enterDispatcher = handler => {
+                if (handler is ISceneHandler<T> typed) {
+                    typed.OnEnter(value);
+                } else {
+                    handler?.OnEnter();
+                }
+            };
             return this;
         }
 
@@ -161,6 +154,7 @@ namespace DarkNaku.Director {
         private void OnApplicationQuit() {
             if (_instance != this) return;
 
+            // 앱 종료 시점이므로 동기 OnExit만 호출하고 ProcessOnExit 비동기 대기는 생략합니다.
             FindInScene<ISceneHandler>(SceneManager.GetActiveScene())?.OnExit();
         }
 
@@ -201,7 +195,8 @@ namespace DarkNaku.Director {
             var scene = new SceneContext(SceneManager.GetActiveScene());
 
             EnableEventSystem(scene.EventSystem, false);
-            await scene.Handler?.OnEnter();
+            scene.Handler?.OnEnter();
+            await scene.Handler?.ProcessOnEnter();
             await TransitionInAsync(scene.Handler, scene.Transition, null, scene.Name);
             EnableEventSystem(scene.EventSystem, true);
 
@@ -222,7 +217,7 @@ namespace DarkNaku.Director {
             _changing = true;
             _loadingScene = null;
             _minLoadingTime = 0f;
-            _param = null;
+            _enterDispatcher = null;
 
             var currentContext = new SceneContext(SceneManager.GetActiveScene());
 
@@ -250,13 +245,15 @@ namespace DarkNaku.Director {
 
             await WaitForPreloadAsync(op);
             await TransitionOutAsync(current.Handler, current.Transition, current.Name, nextScene);
-            await current.Handler?.OnExit();
+            await current.Handler?.ProcessOnExit();
+            current.Handler?.OnExit();
             await ActivateSceneAsync(op);
 
             var loadingContext = new SceneContext(SceneManager.GetSceneByName(_loadingScene));
             SceneManager.SetActiveScene(SceneManager.GetSceneByName(_loadingScene));
 
-            await loadingContext.Handler?.OnEnter();
+            loadingContext.Handler?.OnEnter();
+            await loadingContext.Handler?.ProcessOnEnter();
             await TransitionInAsync(loadingContext.Handler, loadingContext.Transition, current.Name, nextScene);
 
             return loadingContext;
@@ -274,6 +271,7 @@ namespace DarkNaku.Director {
 
             await ReportProgressAsync(op, prev.Progress);
             await TransitionOutAsync(prev.Handler, prev.Transition, prev.Name, nextScene);
+            await prev.Handler?.ProcessOnExit();
             prev.Handler?.OnExit();
             await ActivateSceneAsync(op);
 
@@ -441,42 +439,22 @@ namespace DarkNaku.Director {
         #region Scene Enter Helpers
 
         /// <summary>
-        /// 씬 핸들러에 OnEnter를 호출합니다. <see cref="_param"/>이 설정되어 있으면
-        /// 리플렉션으로 <see cref="ISceneHandler{T}.OnEnter(T)"/>를 디스패치하고,
-        /// 없거나 매칭되는 인터페이스가 없으면 파라미터 없는 <see cref="ISceneHandler.OnEnter"/>를 호출합니다.
+        /// 씬 핸들러의 진입 콜백을 동기 호출한 뒤 비동기 처리(<see cref="ISceneHandler.ProcessOnEnter"/>)
+        /// 완료를 대기합니다. <see cref="_enterDispatcher"/>가 설정되어 있으면 클로저로 캡처된 타입
+        /// 파라미터와 함께 <see cref="ISceneHandler{T}.OnEnter(T)"/>를 호출하고, 매칭되는 인터페이스가
+        /// 없으면 파라미터 없는 <see cref="ISceneHandler.OnEnter"/>를 호출합니다.
         /// </summary>
         /// <param name="handler">대상 씬 핸들러.</param>
         private async Task EnterSceneAsync(ISceneHandler handler) {
-            if (_param == null) {
-                await handler?.OnEnter();
-                return;
-            }
-
-            var genericHandler = handler?.GetType()
-                .GetInterfaces()
-                .FirstOrDefault(i =>
-                    i.IsGenericType &&
-                    i.GetGenericTypeDefinition() == typeof(ISceneHandler<>) &&
-                    i.GetGenericArguments()[0].IsAssignableFrom(_param.Type));
-
-            if (genericHandler == null) {
-                await handler?.OnEnter();
+            if (_enterDispatcher == null) {
+                handler?.OnEnter();
             } else {
-                var method = genericHandler.GetMethod("OnEnter");
-                var value = _param.Value;
-
-                if (value == null && _param.Type.IsValueType) {
-                    value = Activator.CreateInstance(_param.Type);
-                }
-
-                try {
-                    await (Task)method?.Invoke(handler, new[] { value });
-                } catch (Exception e) {
-                    Debug.LogError($"[Director] EnterSceneAsync : Failed to send param. - {e}");
-                }
+                var dispatcher = _enterDispatcher;
+                _enterDispatcher = null;
+                dispatcher(handler);
             }
 
-            _param = null;
+            await handler?.ProcessOnEnter();
         }
 
         #endregion

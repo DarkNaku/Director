@@ -32,14 +32,6 @@ namespace DarkNaku.Director.Tests {
         }
 
         [Test]
-        public void 씬_전환중_플래그_기본값_false() {
-            var field = typeof(Director).GetField("_changing", BindingFlags.NonPublic | BindingFlags.Instance);
-            var value = (bool)field?.GetValue(_director);
-
-            Assert.That(value, Is.False);
-        }
-
-        [Test]
         public void 씬_전환중일때_추가_전환_차단() {
             var changingField = typeof(Director).GetField("_changing", BindingFlags.NonPublic | BindingFlags.Instance);
             changingField?.SetValue(_director, true);

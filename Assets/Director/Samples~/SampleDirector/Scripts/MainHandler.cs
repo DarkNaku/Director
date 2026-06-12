@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,15 +9,27 @@ using UnityEngine.UI;
 public class MainHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
 {
     [SerializeField] private Slider _slider;
-    
+
     public void OnEnter()
     {
         Debug.Log("[Main] OnEnter");
     }
-    
+
+    public Task ProcessOnEnter()
+    {
+        Debug.Log("[Main] ProcessOnEnter");
+        return Task.CompletedTask;
+    }
+
     public void OnExit()
     {
         Debug.Log("[Main] OnExit");
+    }
+
+    public Task ProcessOnExit()
+    {
+        Debug.Log("[Main] ProcessOnExit");
+        return Task.CompletedTask;
     }
     
     public void OnProgress(float progress)

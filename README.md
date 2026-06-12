@@ -1,6 +1,6 @@
 # Director
 
-![Version](https://img.shields.io/badge/version-0.6.2-blue)
+![Version](https://img.shields.io/badge/version-0.6.3-blue)
 ![Unity](https://img.shields.io/badge/Unity-2018.3%2B-black?logo=unity)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-DarkNaku-orange)
@@ -75,16 +75,26 @@ Director는 3개의 인터페이스를 통해 씬의 동작을 정의합니다. 
 
 씬의 라이프사이클 이벤트를 처리합니다. 모든 메서드는 기본 구현이 있어 필요한 것만 오버라이드하면 됩니다.
 
+진입·퇴장 콜백은 **동기 이벤트(`OnEnter`/`OnExit`)** 와 **비동기 후속 처리(`ProcessOnEnter`/`ProcessOnExit`)** 로 분리되어 있습니다. 동기 이벤트만 필요하면 `OnEnter`/`OnExit`만 오버라이드하고, 비동기 작업(에셋 로드 등)이 필요하면 `ProcessOnEnter`/`ProcessOnExit`에서 처리하세요.
+
 ```csharp
 public class MySceneHandler : MonoBehaviour, ISceneHandler {
-    public Task OnEnter() {
-        // 씬 진입 시 초기화
-        return Task.CompletedTask;
+    public void OnEnter() {
+        // 씬 진입 시 동기 초기화
     }
 
-    public Task OnExit() {
-        // 씬 퇴장 시 정리
-        return Task.CompletedTask;
+    public async Task ProcessOnEnter() {
+        // 씬 진입 직후 Director가 완료를 대기하는 비동기 작업 (선택)
+        await LoadAssetsAsync();
+    }
+
+    public void OnExit() {
+        // 씬 퇴장 시 동기 정리
+    }
+
+    public async Task ProcessOnExit() {
+        // 씬 퇴장 직전 Director가 완료를 대기하는 비동기 작업 (선택)
+        await SaveAsync();
     }
 
     public void OnBeforeTransitionIn() { }   // TransitionIn 직전
@@ -100,10 +110,12 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler {
 
 ```csharp
 public class MySceneHandler : MonoBehaviour, ISceneHandler<int> {
-    public Task OnEnter(int value) {
+    public void OnEnter(int value) {
         Debug.Log($"전달받은 값: {value}");
-        return Task.CompletedTask;
     }
+
+    // 비동기 초기화가 필요하면 ProcessOnEnter에서 처리
+    public Task ProcessOnEnter() => Task.CompletedTask;
 }
 ```
 
@@ -160,19 +172,23 @@ Director.Change(next)
 │   ├─ OnBeforeTransitionOut()
 │   ├─ TransitionOut()          ← 페이드 아웃
 │   ├─ OnAfterTransitionOut()
-│   └─ OnExit()                ← 정리 후 언로드
+│   ├─ ProcessOnExit()          ← 비동기 정리 (await)
+│   └─ OnExit()                 ← 동기 정리 후 언로드
 │
 ├─ 로딩 씬 (WithLoading 사용 시)
 │   ├─ OnEnter()
+│   ├─ ProcessOnEnter()         ← 비동기 초기화 (await)
 │   ├─ TransitionIn()
-│   ├─ OnProgress()            ← 다음 씬 로드 중 반복 호출
+│   ├─ OnProgress()             ← 다음 씬 로드 중 반복 호출
 │   ├─ TransitionOut()
-│   └─ OnExit()                ← 언로드
+│   ├─ ProcessOnExit()          ← 비동기 정리 (await)
+│   └─ OnExit()                 ← 언로드
 │
 ├─ 다음 씬
 │   ├─ OnEnter() 또는 OnEnter<T>(param)
+│   ├─ ProcessOnEnter()         ← 비동기 초기화 (await)
 │   ├─ OnBeforeTransitionIn()
-│   ├─ TransitionIn()          ← 페이드 인
+│   ├─ TransitionIn()           ← 페이드 인
 │   └─ OnAfterTransitionIn()
 │
 └─ EventSystem 재활성화
