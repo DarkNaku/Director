@@ -9,25 +9,25 @@ public class ASceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
 {
     [SerializeField] private Slider _slider;
 
-    public void OnEnter()
+    public void OnEnterScene()
     {
-        Debug.Log("[SceneA] OnEnter");
+        Debug.Log("[SceneA] OnEnterScene");
     }
 
-    public Task ProcessOnEnter()
+    public Task ProcessOnEnterScene()
     {
-        Debug.Log("[SceneA] ProcessOnEnter");
+        Debug.Log("[SceneA] ProcessOnEnterScene");
         return Task.CompletedTask;
     }
 
-    public void OnExit()
+    public void OnExitScene()
     {
-        Debug.Log("[SceneA] OnExit");
+        Debug.Log("[SceneA] OnExitScene");
     }
 
-    public Task ProcessOnExit()
+    public Task ProcessOnExitScene()
     {
-        Debug.Log("[SceneA] ProcessOnExit");
+        Debug.Log("[SceneA] ProcessOnExitScene");
         return Task.CompletedTask;
     }
     

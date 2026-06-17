@@ -4,7 +4,7 @@
 
 ## 프로젝트 개요
 
-**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.6.4)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
+**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.6.5)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
 
 ## Unity 환경
 
@@ -24,7 +24,7 @@ Unity 프로젝트이므로 CLI 빌드/테스트 명령어는 없습니다. Unit
 
 4개의 파일로 구성됩니다:
 
-- **Director.cs** — 싱글톤 오케스트레이터. `async Task`와 `Task.Yield()`를 사용하여 프레임 동기화 기반으로 씬 전환 흐름을 관리합니다. 리플렉션을 통해 씬 핸들러의 제네릭 `OnEnter<T>(param)`을 호출합니다. 플루언트 빌더 패턴 구현: `Director.Change("Scene").WithLoading("Loading").SetMinLoadingTime(2f).WithParam(123)`.
+- **Director.cs** — 싱글톤 오케스트레이터. `async Task`와 `Task.Yield()`를 사용하여 프레임 동기화 기반으로 씬 전환 흐름을 관리합니다. 타입 정보를 캡처한 클로저(`_enterDispatcher`)를 통해 박싱·리플렉션 없이 씬 핸들러의 제네릭 `OnEnterScene<T>(param)`을 호출합니다. 플루언트 빌더 패턴 구현: `Director.Change("Scene").WithLoading("Loading").SetMinLoadingTime(2f).WithParam(123)`.
 - **ISceneHandler.cs** — 씬 라이프사이클 콜백을 정의하는 인터페이스. 타입 파라미터를 받을 수 있는 제네릭 변형 `ISceneHandler<T>`도 포함합니다.
 - **ISceneTransition.cs** — 시각적 전환 효과(페이드 인/아웃)를 위한 인터페이스.
 - **ILoadingProgress.cs** — 로딩 진행 상황 업데이트를 받기 위한 인터페이스 (`OnProgress(float)`).
@@ -33,9 +33,9 @@ Unity 프로젝트이므로 CLI 빌드/테스트 명령어는 없습니다. Unit
 
 ```
 Director.Change(next) → EventSystem 비활성화
-  → 현재 씬: OnBeforeTransitionOut → TransitionOut → OnAfterTransitionOut → OnExit → 언로드
-  → 로딩 (선택): 로드 → OnEnter → TransitionIn → 다음 씬 비동기 로드 (진행률 전달)
-  → 다음 씬: OnEnter() 또는 OnEnter<T>(param) → OnBeforeTransitionIn → TransitionIn → OnAfterTransitionIn
+  → 현재 씬: OnBeforeTransitionOut → TransitionOut → OnAfterTransitionOut → OnExitScene → 언로드
+  → 로딩 (선택): 로드 → OnEnterScene → TransitionIn → 다음 씬 비동기 로드 (진행률 전달)
+  → 다음 씬: OnEnterScene() 또는 OnEnterScene<T>(param) → OnBeforeTransitionIn → TransitionIn → OnAfterTransitionIn
   → EventSystem 재활성화
 ```
 

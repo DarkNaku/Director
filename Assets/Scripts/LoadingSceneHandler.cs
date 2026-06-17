@@ -7,21 +7,21 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public void OnEnter() {
-        Debug.Log("[LoadingScene] OnEnter");
+    public void OnEnterScene() {
+        Debug.Log("[LoadingScene] OnEnterScene");
     }
 
-    public Task ProcessOnEnter() {
-        Debug.Log("[LoadingScene] ProcessOnEnter");
+    public Task ProcessOnEnterScene() {
+        Debug.Log("[LoadingScene] ProcessOnEnterScene");
         return Task.CompletedTask;
     }
 
-    public void OnExit() {
-        Debug.Log("[LoadingScene] OnExit");
+    public void OnExitScene() {
+        Debug.Log("[LoadingScene] OnExitScene");
     }
 
-    public Task ProcessOnExit() {
-        Debug.Log("[LoadingScene] ProcessOnExit");
+    public Task ProcessOnExitScene() {
+        Debug.Log("[LoadingScene] ProcessOnExitScene");
         return Task.CompletedTask;
     }
     public void OnProgress(float progress) {

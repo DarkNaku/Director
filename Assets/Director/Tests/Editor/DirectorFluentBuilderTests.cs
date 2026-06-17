@@ -83,7 +83,7 @@ namespace DarkNaku.Director.Tests {
             InvokeDispatcher(_director, handler);
 
             Assert.That(handler.ReceivedValue, Is.EqualTo(42));
-            Assert.That(handler.OnEnterCalled, Is.False);
+            Assert.That(handler.OnEnterSceneCalled, Is.False);
         }
 
         [Test]
@@ -97,13 +97,13 @@ namespace DarkNaku.Director.Tests {
         }
 
         [Test]
-        public void WithParam_매칭_핸들러_없으면_파라미터_없는_OnEnter_호출() {
+        public void WithParam_매칭_핸들러_없으면_파라미터_없는_OnEnterScene_호출() {
             _director.WithParam(42);
 
             var handler = new TrackingNoParamHandler();
             InvokeDispatcher(_director, handler);
 
-            Assert.That(handler.OnEnterCalled, Is.True);
+            Assert.That(handler.OnEnterSceneCalled, Is.True);
         }
 
         [Test]
@@ -157,21 +157,21 @@ namespace DarkNaku.Director.Tests {
 
         private class TrackingIntHandler : ISceneHandler<int> {
             public int ReceivedValue { get; private set; }
-            public bool OnEnterCalled { get; private set; }
+            public bool OnEnterSceneCalled { get; private set; }
 
-            public void OnEnter(int param) {
+            public void OnEnterScene(int param) {
                 ReceivedValue = param;
             }
 
-            public void OnEnter() {
-                OnEnterCalled = true;
+            public void OnEnterScene() {
+                OnEnterSceneCalled = true;
             }
         }
 
         private class TrackingStringHandler : ISceneHandler<string> {
             public string ReceivedValue { get; private set; }
 
-            public void OnEnter(string param) {
+            public void OnEnterScene(string param) {
                 ReceivedValue = param;
             }
         }
@@ -179,16 +179,16 @@ namespace DarkNaku.Director.Tests {
         private class TrackingCustomHandler : ISceneHandler<TestData> {
             public TestData ReceivedValue { get; private set; }
 
-            public void OnEnter(TestData param) {
+            public void OnEnterScene(TestData param) {
                 ReceivedValue = param;
             }
         }
 
         private class TrackingNoParamHandler : ISceneHandler {
-            public bool OnEnterCalled { get; private set; }
+            public bool OnEnterSceneCalled { get; private set; }
 
-            public void OnEnter() {
-                OnEnterCalled = true;
+            public void OnEnterScene() {
+                OnEnterSceneCalled = true;
             }
         }
 

@@ -120,9 +120,9 @@ namespace DarkNaku.Director {
         public Director WithParam<T>(T value) {
             _enterDispatcher = handler => {
                 if (handler is ISceneHandler<T> typed) {
-                    typed.OnEnter(value);
+                    typed.OnEnterScene(value);
                 } else {
-                    handler?.OnEnter();
+                    handler?.OnEnterScene();
                 }
             };
             return this;
@@ -154,8 +154,8 @@ namespace DarkNaku.Director {
         private void OnApplicationQuit() {
             if (_instance != this) return;
 
-            // 앱 종료 시점이므로 동기 OnExit만 호출하고 ProcessOnExit 비동기 대기는 생략합니다.
-            FindInScene<ISceneHandler>(SceneManager.GetActiveScene())?.OnExit();
+            // 앱 종료 시점이므로 동기 OnExitScene만 호출하고 ProcessOnExitScene 비동기 대기는 생략합니다.
+            FindInScene<ISceneHandler>(SceneManager.GetActiveScene())?.OnExitScene();
         }
 
         private void Initialize() {
@@ -189,14 +189,14 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 최초 로드된 씬의 진입 라이프사이클(OnEnter → TransitionIn)을 실행합니다.
+        /// 최초 로드된 씬의 진입 라이프사이클(OnEnterScene → TransitionIn)을 실행합니다.
         /// </summary>
         private static async Task EnterFirstScene() {
             var scene = new SceneContext(SceneManager.GetActiveScene());
 
             EnableEventSystem(scene.EventSystem, false);
-            scene.Handler?.OnEnter();
-            await scene.Handler?.ProcessOnEnter();
+            scene.Handler?.OnEnterScene();
+            await scene.Handler?.ProcessOnEnterScene();
             await TransitionInAsync(scene.Handler, scene.Transition, null, scene.Name);
             EnableEventSystem(scene.EventSystem, true);
 
@@ -245,15 +245,15 @@ namespace DarkNaku.Director {
 
             await WaitForPreloadAsync(op);
             await TransitionOutAsync(current.Handler, current.Transition, current.Name, nextScene);
-            await current.Handler?.ProcessOnExit();
-            current.Handler?.OnExit();
+            await current.Handler?.ProcessOnExitScene();
+            current.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
             var loadingContext = new SceneContext(SceneManager.GetSceneByName(_loadingScene));
             SceneManager.SetActiveScene(SceneManager.GetSceneByName(_loadingScene));
 
-            loadingContext.Handler?.OnEnter();
-            await loadingContext.Handler?.ProcessOnEnter();
+            loadingContext.Handler?.OnEnterScene();
+            await loadingContext.Handler?.ProcessOnEnterScene();
             await TransitionInAsync(loadingContext.Handler, loadingContext.Transition, current.Name, nextScene);
 
             return loadingContext;
@@ -271,8 +271,8 @@ namespace DarkNaku.Director {
 
             await ReportProgressAsync(op, prev.Progress);
             await TransitionOutAsync(prev.Handler, prev.Transition, prev.Name, nextScene);
-            await prev.Handler?.ProcessOnExit();
-            prev.Handler?.OnExit();
+            await prev.Handler?.ProcessOnExitScene();
+            prev.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
             var next = new SceneContext(SceneManager.GetSceneByName(nextScene));
@@ -368,7 +368,7 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 트랜지션 인의 준비 단계만 실행합니다. OnEnter 호출 전에 사용됩니다.
+        /// 트랜지션 인의 준비 단계만 실행합니다. OnEnterScene 호출 전에 사용됩니다.
         /// OnBeforeTransitionIn → PrepareTransitionIn.
         /// </summary>
         private static void PrepareTransitionIn(
@@ -380,7 +380,7 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 트랜지션 인의 실행 단계만 완료합니다. OnEnter 호출 후에 사용됩니다.
+        /// 트랜지션 인의 실행 단계만 완료합니다. OnEnterScene 호출 후에 사용됩니다.
         /// TransitionIn → OnAfterTransitionIn.
         /// </summary>
         private static async Task FinishTransitionInAsync(
@@ -439,22 +439,22 @@ namespace DarkNaku.Director {
         #region Scene Enter Helpers
 
         /// <summary>
-        /// 씬 핸들러의 진입 콜백을 동기 호출한 뒤 비동기 처리(<see cref="ISceneHandler.ProcessOnEnter"/>)
+        /// 씬 핸들러의 진입 콜백을 동기 호출한 뒤 비동기 처리(<see cref="ISceneHandler.ProcessOnEnterScene"/>)
         /// 완료를 대기합니다. <see cref="_enterDispatcher"/>가 설정되어 있으면 클로저로 캡처된 타입
-        /// 파라미터와 함께 <see cref="ISceneHandler{T}.OnEnter(T)"/>를 호출하고, 매칭되는 인터페이스가
-        /// 없으면 파라미터 없는 <see cref="ISceneHandler.OnEnter"/>를 호출합니다.
+        /// 파라미터와 함께 <see cref="ISceneHandler{T}.OnEnterScene(T)"/>를 호출하고, 매칭되는 인터페이스가
+        /// 없으면 파라미터 없는 <see cref="ISceneHandler.OnEnterScene"/>를 호출합니다.
         /// </summary>
         /// <param name="handler">대상 씬 핸들러.</param>
         private async Task EnterSceneAsync(ISceneHandler handler) {
             if (_enterDispatcher == null) {
-                handler?.OnEnter();
+                handler?.OnEnterScene();
             } else {
                 var dispatcher = _enterDispatcher;
                 _enterDispatcher = null;
                 dispatcher(handler);
             }
 
-            await handler?.ProcessOnEnter();
+            await handler?.ProcessOnEnterScene();
         }
 
         #endregion

@@ -10,25 +10,25 @@ public class MainHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
 {
     [SerializeField] private Slider _slider;
 
-    public void OnEnter()
+    public void OnEnterScene()
     {
-        Debug.Log("[Main] OnEnter");
+        Debug.Log("[Main] OnEnterScene");
     }
 
-    public Task ProcessOnEnter()
+    public Task ProcessOnEnterScene()
     {
-        Debug.Log("[Main] ProcessOnEnter");
+        Debug.Log("[Main] ProcessOnEnterScene");
         return Task.CompletedTask;
     }
 
-    public void OnExit()
+    public void OnExitScene()
     {
-        Debug.Log("[Main] OnExit");
+        Debug.Log("[Main] OnExitScene");
     }
 
-    public Task ProcessOnExit()
+    public Task ProcessOnExitScene()
     {
-        Debug.Log("[Main] ProcessOnExit");
+        Debug.Log("[Main] ProcessOnExitScene");
         return Task.CompletedTask;
     }
     

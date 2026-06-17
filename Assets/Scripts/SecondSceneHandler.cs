@@ -11,22 +11,22 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingPro
     [SerializeField] private Slider _slider;
     [SerializeField] private Image _curtain;
     
-    public void OnEnter(int x) {
-        Debug.Log($"[SecondScene] OnEnter : {x}");
+    public void OnEnterScene(int x) {
+        Debug.Log($"[SecondScene] OnEnterScene : {x}");
     }
 
-    public async Task ProcessOnEnter() {
-        Debug.Log("[SecondScene] ProcessOnEnter");
+    public async Task ProcessOnEnterScene() {
+        Debug.Log("[SecondScene] ProcessOnEnterScene");
         var ao = Addressables.LoadSceneAsync("SubScene", LoadSceneMode.Additive);
         while (!ao.IsDone) await Task.Yield();
     }
 
-    public void OnExit() {
-        Debug.Log("[SecondScene] OnExit");
+    public void OnExitScene() {
+        Debug.Log("[SecondScene] OnExitScene");
     }
 
-    public Task ProcessOnExit() {
-        Debug.Log("[SecondScene] ProcessOnExit");
+    public Task ProcessOnExitScene() {
+        Debug.Log("[SecondScene] ProcessOnExitScene");
         return Task.CompletedTask;
     }
     
