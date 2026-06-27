@@ -196,7 +196,7 @@ namespace DarkNaku.Director {
 
             EnableEventSystem(scene.EventSystem, false);
             scene.Handler?.OnEnterScene();
-            await scene.Handler?.ProcessOnEnterScene();
+            await (scene.Handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
             await TransitionInAsync(scene.Handler, scene.Transition, null, scene.Name);
             EnableEventSystem(scene.EventSystem, true);
 
@@ -245,7 +245,7 @@ namespace DarkNaku.Director {
 
             await WaitForPreloadAsync(op);
             await TransitionOutAsync(current.Handler, current.Transition, current.Name, nextScene);
-            await current.Handler?.ProcessOnExitScene();
+            await (current.Handler?.ProcessOnExitScene() ?? Task.CompletedTask);
             current.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
@@ -253,7 +253,7 @@ namespace DarkNaku.Director {
             SceneManager.SetActiveScene(SceneManager.GetSceneByName(_loadingScene));
 
             loadingContext.Handler?.OnEnterScene();
-            await loadingContext.Handler?.ProcessOnEnterScene();
+            await (loadingContext.Handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
             await TransitionInAsync(loadingContext.Handler, loadingContext.Transition, current.Name, nextScene);
 
             return loadingContext;
@@ -271,7 +271,7 @@ namespace DarkNaku.Director {
 
             await ReportProgressAsync(op, prev.Progress);
             await TransitionOutAsync(prev.Handler, prev.Transition, prev.Name, nextScene);
-            await prev.Handler?.ProcessOnExitScene();
+            await (prev.Handler?.ProcessOnExitScene() ?? Task.CompletedTask);
             prev.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
@@ -454,7 +454,7 @@ namespace DarkNaku.Director {
                 dispatcher(handler);
             }
 
-            await handler?.ProcessOnEnterScene();
+            await (handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
         }
 
         #endregion

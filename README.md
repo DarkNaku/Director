@@ -1,6 +1,6 @@
 # Director
 
-![Version](https://img.shields.io/badge/version-0.6.5-blue)
+![Version](https://img.shields.io/badge/version-0.6.6-blue)
 ![Unity](https://img.shields.io/badge/Unity-2018.3%2B-black?logo=unity)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-DarkNaku-orange)
