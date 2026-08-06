@@ -1,3 +1,4 @@
+using System;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -27,15 +28,41 @@ public class FirstSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgress,
     }
     
     public void OnClickWithLoading() {
+        // 여러 SDK 초기화(InitializeSdksAsync)를 로딩 진행률의 70% 구간으로 처리하고,
+        // 나머지 30%를 씬 로드가 채웁니다.
         Director.Change("SecondScene")
             .WithLoading("LoadingScene")
+            .WithLoadingTask(0.7f, InitializeSdksAsync)
             .SetMinLoadingTime(2f);
     }
-    
+
     public void OnClickWithoutLoading() {
         Director.Change("SecondScene")
             .SetMinLoadingTime(2f)
             .WithParam(100);
+    }
+
+    // 광고 등 여러 SDK의 비동기 초기화 파사드 예시. 자기 구간(0~1)의 진행률을 IProgress로 통지하면
+    // Director가 가중치(0.7)를 반영해 전체 로딩 진행률로 변환합니다.
+    private async Awaitable InitializeSdksAsync(IProgress<float> progress) {
+        Debug.Log("[FirstScene] SDK 초기화 시작");
+
+        await FakeInitializeAsync("Ads");
+        progress.Report(0.4f);
+
+        await FakeInitializeAsync("Auth");
+        progress.Report(0.7f);
+
+        await FakeInitializeAsync("RemoteConfig");
+        progress.Report(1f);
+
+        Debug.Log("[FirstScene] SDK 초기화 완료");
+    }
+
+    // 실제 SDK 초기화를 흉내 내는 지연 (데모용).
+    private async Awaitable FakeInitializeAsync(string sdkName) {
+        Debug.Log($"[FirstScene] {sdkName} 초기화 중...");
+        await Awaitable.WaitForSecondsAsync(0.6f);
     }
     
     public void OnProgress(float progress) {

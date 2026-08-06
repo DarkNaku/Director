@@ -1,6 +1,6 @@
 # Director
 
-![Version](https://img.shields.io/badge/version-0.7.0-blue)
+![Version](https://img.shields.io/badge/version-0.7.1-blue)
 ![Unity](https://img.shields.io/badge/Unity-6000.0%2B-black?logo=unity)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-DarkNaku-orange)
@@ -15,6 +15,7 @@ Unity 씬 전환을 위한 경량 라이브러리입니다. 전환 연출, 로�
 
 - **전환 연출** — 페이드 등 시각적 효과를 씬 전환 시 적용
 - **로딩 화면** — 로딩 씬을 지정하여 진행률과 함께 표시
+- **로딩 작업 등록** — SDK 초기화 등 비동기 작업을 가중치와 함께 등록해 전체 진행률에 반영
 - **최소 로딩 시간** — 로딩 화면이 너무 빨리 사라지는 것을 방지
 - **파라미터 전달** — 다음 씬 핸들러에 타입 안전한 파라미터 전달
 - **입력 차단** — 전환 중 EventSystem을 자동으로 비활성화하여 입력 방지
@@ -58,11 +59,35 @@ Director.Change("NextScene").WithLoading("LoadingScene").SetMinLoadingTime(2f);
 Director.Change("NextScene").WithParam(100);
 ```
 
+### 로딩 작업 등록 (가중치 기반 진행률)
+
+씬 로드 전에 실행할 비동기 작업을 **전체 로딩 진행률에서 차지하는 비율(가중치)**과 함께 등록합니다. 광고를 포함한 여러 SDK의 초기화처럼, 씬 로드와 별개로 시간이 걸리는 작업을 로딩 화면에 자연스럽게 녹여낼 때 유용합니다.
+
+```csharp
+Director.Change("NextScene")
+    .WithLoading("LoadingScene")
+    .WithLoadingTask(0.7f, InitializeSdksAsync);   // 진행률 0~70% 구간, 씬 로드가 나머지 30%
+
+// 작업은 자기 구간(0~1)의 진행률을 IProgress로 통지하면 되고,
+// Director가 가중치(0.7)를 반영해 전체 진행률로 변환합니다.
+async Awaitable InitializeSdksAsync(IProgress<float> progress) {
+    await AdSdk.InitAsync();          progress.Report(0.4f);
+    await AuthSdk.InitAsync();        progress.Report(0.7f);
+    await RemoteConfig.FetchAsync();  progress.Report(1f);
+}
+```
+
+- **실행 순서** — 등록한 작업이 먼저 순차 실행된 뒤 씬 로드가 이어집니다. 여러 번 호출하면 등록 순서대로 실행됩니다.
+- **가중치 배분** — 씬 로드는 `1 - (작업 가중치 합)`을 차지합니다. 합이 1을 초과하면 경고 후 정규화되어 씬 로드는 진행률을 차지하지 않습니다.
+- **진행률 통지** — 작업이 `IProgress<float>`로 통지하지 않아도, 완료 시 해당 구간은 자동으로 채워집니다. 통지된 전체 진행률은 되돌아가지 않도록 단조 증가합니다.
+- **최소 로딩 시간** — `SetMinLoadingTime`은 작업과 씬 로드를 합친 전체 로딩 구간에 적용됩니다.
+
 ### 모든 옵션 조합
 
 ```csharp
 Director.Change("NextScene")
     .WithLoading("LoadingScene")
+    .WithLoadingTask(0.7f, InitializeSdksAsync)
     .SetMinLoadingTime(1f)
     .WithParam(123);
 ```
@@ -179,7 +204,8 @@ Director.Change(next)
 │   ├─ OnEnterScene()
 │   ├─ ProcessOnEnterScene()        ← 비동기 초기화 (await)
 │   ├─ TransitionIn()
-│   ├─ OnProgress()                 ← 다음 씬 로드 중 반복 호출
+│   ├─ WithLoadingTask 작업 순차 실행 ← 진행률 앞 구간 (가중치)
+│   ├─ OnProgress()                 ← 작업 + 다음 씬 로드 중 반복 호출
 │   ├─ TransitionOut()
 │   ├─ ProcessOnExitScene()         ← 비동기 정리 (await)
 │   └─ OnExitScene()                ← 언로드

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -30,6 +31,48 @@ namespace DarkNaku.Director {
                 Transition = FindInScene<ISceneTransition>(scene);
                 Progress = FindInScene<ILoadingProgress>(scene);
                 EventSystem = FindEventSystem(scene);
+            }
+        }
+
+        /// <summary>
+        /// 씬 로드 전에 실행할 비동기 작업과, 전체 로딩 진행률에서 차지하는 가중치를 묶은 항목.
+        /// </summary>
+        private readonly struct LoadingTask {
+            public readonly float Weight;
+            public readonly Func<IProgress<float>, Awaitable> Run;
+
+            public LoadingTask(float weight, Func<IProgress<float>, Awaitable> run) {
+                Weight = weight;
+                Run = run;
+            }
+        }
+
+        /// <summary>
+        /// 개별 세그먼트(작업 또는 씬 로드)의 로컬 진행률(0~1)을 전체 진행률로 변환하여
+        /// <see cref="ILoadingProgress"/>에 통지하는 리포터. 통지 값은 단조 증가로 클램프됩니다.
+        /// </summary>
+        private sealed class SegmentReporter : IProgress<float> {
+            private readonly ILoadingProgress _progress;
+            private readonly float _baseGlobal;
+            private readonly float _weight;
+            private float _last;
+
+            public float Last => _last;
+
+            public SegmentReporter(ILoadingProgress progress, float baseGlobal, float weight, float last) {
+                _progress = progress;
+                _baseGlobal = baseGlobal;
+                _weight = weight;
+                _last = last;
+            }
+
+            public void Report(float local) {
+                var global = _baseGlobal + _weight * Mathf.Clamp01(local);
+
+                if (global <= _last) return;
+
+                _last = global;
+                _progress?.OnProgress(global);
             }
         }
 
@@ -73,6 +116,7 @@ namespace DarkNaku.Director {
         private string _loadingScene;
         private float _minLoadingTime;
         private Action<ISceneHandler> _enterDispatcher;
+        private List<LoadingTask> _loadingTasks;
 
         #endregion
 
@@ -105,6 +149,36 @@ namespace DarkNaku.Director {
         /// <returns>옵션 체이닝을 위한 Director 인스턴스.</returns>
         public Director SetMinLoadingTime(float seconds) {
             _minLoadingTime = seconds;
+            return this;
+        }
+
+        /// <summary>
+        /// 씬 로드 전에 실행할 비동기 작업을 전체 로딩 진행률의 일부로 등록합니다.
+        /// 여러 번 호출하면 등록한 순서대로 순차 실행되며, 각 작업이 차지하는 가중치만큼 진행률을 채웁니다.
+        /// 씬 로드는 나머지 가중치(<c>1 - 작업 가중치 합</c>)를 차지합니다.
+        /// <para>
+        /// 작업은 전달받은 <see cref="IProgress{Single}"/>에 자기 구간의 로컬 진행률(0~1)을 통지하면 되고,
+        /// Director가 가중치를 반영해 전체 진행률로 변환합니다. 통지하지 않아도 작업 완료 시 해당 구간이 채워집니다.
+        /// </para>
+        /// <example>
+        /// <code>
+        /// Director.Change("Game").WithLoading("Loading").WithLoadingTask(0.7f, InitializeSdksAsync);
+        ///
+        /// async Awaitable InitializeSdksAsync(IProgress&lt;float&gt; progress) {
+        ///     await AdSdk.InitAsync();          progress.Report(0.5f);
+        ///     await RemoteConfig.FetchAsync();  progress.Report(1f);
+        /// }
+        /// </code>
+        /// </example>
+        /// </summary>
+        /// <param name="weight">전체 로딩 진행률에서 이 작업이 차지하는 비율(0~1).</param>
+        /// <param name="task">진행률 리포터를 받아 실행할 비동기 작업.</param>
+        /// <returns>옵션 체이닝을 위한 Director 인스턴스.</returns>
+        public Director WithLoadingTask(float weight, Func<IProgress<float>, Awaitable> task) {
+            if (task == null) return this;
+
+            _loadingTasks ??= new List<LoadingTask>();
+            _loadingTasks.Add(new LoadingTask(Mathf.Clamp01(weight), task));
             return this;
         }
 
@@ -217,6 +291,7 @@ namespace DarkNaku.Director {
             _loadingScene = null;
             _minLoadingTime = 0f;
             _enterDispatcher = null;
+            _loadingTasks = null;
 
             var currentContext = new SceneContext(SceneManager.GetActiveScene());
 
@@ -260,15 +335,22 @@ namespace DarkNaku.Director {
 
         /// <summary>
         /// 대상 씬을 비동기 로드 후 활성화하고, 라이프사이클 이벤트를 실행합니다.
-        /// 프로그레스 리포팅 → 이전 씬 퇴장 → 대상 씬 진입 순서로 진행됩니다.
+        /// 등록된 로딩 작업(Phase A) → 씬 로드(Phase B) → 이전 씬 퇴장 → 대상 씬 진입 순서로 진행됩니다.
         /// </summary>
         /// <param name="nextScene">전환할 대상 씬 이름.</param>
         /// <param name="prev">이전 씬(또는 로딩 씬) 컨텍스트.</param>
         private async Awaitable ChangeToNextSceneAsync(string nextScene, SceneContext prev) {
+            var startTime = Time.realtimeSinceStartup;
+            var (sceneWeight, scale) = ResolveLoadingWeights();
+
+            // Phase A: 등록된 비동기 작업을 순차 실행하며 가중치만큼 진행률을 채웁니다.
+            var completed = await RunLoadingTasksAsync(prev.Progress, scale);
+
+            // Phase B: 대상 씬을 로드하며 나머지 가중치 구간을 채웁니다.
             var op = SceneManager.LoadSceneAsync(nextScene);
             op.allowSceneActivation = false;
 
-            await ReportProgressAsync(op, prev.Progress);
+            await ReportSceneProgressAsync(op, prev.Progress, completed, sceneWeight, startTime);
             await TransitionOutAsync(prev.Handler, prev.Transition, prev.Name, nextScene);
             if (prev.Handler != null) await prev.Handler.ProcessOnExitScene();
             prev.Handler?.OnExitScene();
@@ -412,25 +494,89 @@ namespace DarkNaku.Director {
         }
 
         /// <summary>
-        /// 비동기 로드 진행률과 최소 로딩 시간을 결합하여 <see cref="ILoadingProgress"/>에 보고합니다.
-        /// 두 조건(로드 완료 + 최소 시간 경과)이 모두 충족되면 완료(1.0)를 보고합니다.
+        /// 씬 로드 진행률(나머지 가중치 구간)과 최소 로딩 시간을 결합하여 <see cref="ILoadingProgress"/>에 보고합니다.
+        /// 통지 값은 <paramref name="baseGlobal"/> 이상으로 단조 증가하며, 로드 완료와 최소 시간 경과가
+        /// 모두 충족되면 완료(1.0)를 보고합니다.
         /// </summary>
         /// <param name="op">씬 로드 AsyncOperation.</param>
         /// <param name="progress">진행률 수신자. null이면 대기만 수행합니다.</param>
-        private async Awaitable ReportProgressAsync(AsyncOperation op, ILoadingProgress progress) {
-            var startTime = Time.realtimeSinceStartup;
+        /// <param name="baseGlobal">Phase A(작업)까지 누적된 전체 진행률.</param>
+        /// <param name="sceneWeight">씬 로드가 차지하는 가중치.</param>
+        /// <param name="startTime">최소 로딩 시간 기준 시작 시각(작업 시작 시점).</param>
+        private async Awaitable ReportSceneProgressAsync(
+                AsyncOperation op, ILoadingProgress progress, float baseGlobal, float sceneWeight, float startTime) {
             var minEndTime = startTime + _minLoadingTime;
+            var last = baseGlobal;
 
             while (op.progress < 0.9f || Time.realtimeSinceStartup < minEndTime) {
                 var loadRatio = op.progress / 0.9f;
+                var sceneGlobal = baseGlobal + sceneWeight * loadRatio;
                 var timeRatio = _minLoadingTime > 0f
                     ? Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / _minLoadingTime)
                     : 1f;
-                progress?.OnProgress(Mathf.Min(loadRatio, timeRatio));
+
+                var value = Mathf.Min(sceneGlobal, timeRatio);
+
+                if (value > last) {
+                    last = value;
+                    progress?.OnProgress(value);
+                }
+
                 await Awaitable.NextFrameAsync();
             }
 
             progress?.OnProgress(1f);
+        }
+
+        #endregion
+
+        #region Loading Task Helpers
+
+        /// <summary>
+        /// 등록된 로딩 작업의 가중치 합을 바탕으로 씬 로드 가중치와 작업 가중치 배율을 계산합니다.
+        /// 작업 가중치 합이 1을 넘으면 경고 후 정규화하여 전체 합이 1이 되도록 하고, 씬 로드는 0을 차지합니다.
+        /// </summary>
+        /// <returns>씬 로드 가중치와 작업 가중치에 곱할 배율.</returns>
+        private (float sceneWeight, float scale) ResolveLoadingWeights() {
+            if (_loadingTasks == null || _loadingTasks.Count == 0) return (1f, 1f);
+
+            var taskTotal = 0f;
+
+            for (int i = 0; i < _loadingTasks.Count; i++) taskTotal += _loadingTasks[i].Weight;
+
+            if (taskTotal <= 1f) return (1f - taskTotal, 1f);
+
+            Debug.LogWarningFormat(
+                "[Director] 로딩 작업 가중치 합이 {0:0.###}로 1을 초과하여 정규화합니다. 씬 로드는 진행률을 차지하지 않습니다.",
+                taskTotal);
+
+            return (0f, 1f / taskTotal);
+        }
+
+        /// <summary>
+        /// 등록된 로딩 작업(Phase A)을 순서대로 실행하며 진행률을 통지하고, 누적된 전체 진행률을 반환합니다.
+        /// 각 작업에는 자기 구간(0~1)을 전체 진행률로 변환하는 <see cref="SegmentReporter"/>가 전달되며,
+        /// 작업이 통지하지 않아도 완료 시 해당 구간을 가득 채웁니다.
+        /// </summary>
+        /// <param name="progress">진행률 수신자. null이면 통지 없이 실행만 합니다.</param>
+        /// <param name="scale">작업 가중치에 곱할 배율(정규화용).</param>
+        /// <returns>모든 작업 완료 후 누적된 전체 진행률.</returns>
+        private async Awaitable<float> RunLoadingTasksAsync(ILoadingProgress progress, float scale) {
+            if (_loadingTasks == null) return 0f;
+
+            var completed = 0f;
+
+            for (int i = 0; i < _loadingTasks.Count; i++) {
+                var weight = _loadingTasks[i].Weight * scale;
+                var reporter = new SegmentReporter(progress, completed, weight, completed);
+
+                await _loadingTasks[i].Run(reporter);
+
+                completed += weight;
+                progress?.OnProgress(completed);
+            }
+
+            return completed;
         }
 
         #endregion
