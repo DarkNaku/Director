@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,18 +10,18 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
         Debug.Log("[LoadingScene] OnEnterScene");
     }
 
-    public Task ProcessOnEnterScene() {
+    public Awaitable ProcessOnEnterScene() {
         Debug.Log("[LoadingScene] ProcessOnEnterScene");
-        return Task.CompletedTask;
+        return AwaitableUtility.Completed;
     }
 
     public void OnExitScene() {
         Debug.Log("[LoadingScene] OnExitScene");
     }
 
-    public Task ProcessOnExitScene() {
+    public Awaitable ProcessOnExitScene() {
         Debug.Log("[LoadingScene] ProcessOnExitScene");
-        return Task.CompletedTask;
+        return AwaitableUtility.Completed;
     }
     public void OnProgress(float progress) {
         _slider.value = _slider.maxValue * progress;
@@ -32,7 +31,7 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
         _curtain.color = Color.black;
     }
     
-    public async Task TransitionIn(string fromSceneName, string toSceneName) {
+    public async Awaitable TransitionIn(string fromSceneName, string toSceneName) {
         await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
     }
     
@@ -40,11 +39,11 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
         _curtain.color = Color.clear;
     }
 
-    public async Task TransitionOut(string fromSceneName, string toSceneName) {
+    public async Awaitable TransitionOut(string fromSceneName, string toSceneName) {
         await Fade(new Color(0f, 0f, 0f, 0f), Color.black, 0.5f);
     }
 
-    private async Task Fade(Color start, Color end, float duration) {
+    private async Awaitable Fade(Color start, Color end, float duration) {
         var elapsed = 0f;
 
         while (elapsed < duration) {
@@ -54,7 +53,7 @@ public class LoadingSceneHandler : MonoBehaviour, ISceneHandler, ILoadingProgres
 
             _curtain.color = Color.Lerp(start, end, t);
 
-            await Task.Yield();
+            await Awaitable.NextFrameAsync();
         }
 
         _curtain.color = end;

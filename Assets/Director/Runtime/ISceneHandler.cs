@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+using UnityEngine;
 
 namespace DarkNaku.Director {
     /// <summary>
@@ -21,11 +21,11 @@ namespace DarkNaku.Director {
 
         /// <summary>
         /// <see cref="OnEnterScene"/> 호출 후 Director가 완료를 대기하는 비동기 처리 단계입니다.
-        /// 기본 구현은 즉시 완료된 Task를 반환합니다. 비동기 초기화 작업이 있으면 이 메서드를 override하세요.
+        /// 기본 구현은 즉시 완료된 Awaitable을 반환합니다. 비동기 초기화 작업이 있으면 이 메서드를 override하세요.
         /// </summary>
-        /// <returns>처리 완료를 나타내는 Task.</returns>
-        Task ProcessOnEnterScene() {
-            return Task.CompletedTask;
+        /// <returns>처리 완료를 나타내는 Awaitable.</returns>
+        Awaitable ProcessOnEnterScene() {
+            return AwaitableUtility.Completed;
         }
 
         /// <summary>
@@ -49,11 +49,11 @@ namespace DarkNaku.Director {
 
         /// <summary>
         /// <see cref="OnExitScene"/> 호출 후 Director가 완료를 대기하는 비동기 처리 단계입니다.
-        /// 기본 구현은 즉시 완료된 Task를 반환합니다. 비동기 정리 작업이 있으면 이 메서드를 override하세요.
+        /// 기본 구현은 즉시 완료된 Awaitable을 반환합니다. 비동기 정리 작업이 있으면 이 메서드를 override하세요.
         /// </summary>
-        /// <returns>처리 완료를 나타내는 Task.</returns>
-        Task ProcessOnExitScene() {
-            return Task.CompletedTask;
+        /// <returns>처리 완료를 나타내는 Awaitable.</returns>
+        Awaitable ProcessOnExitScene() {
+            return AwaitableUtility.Completed;
         }
 
         /// <summary>

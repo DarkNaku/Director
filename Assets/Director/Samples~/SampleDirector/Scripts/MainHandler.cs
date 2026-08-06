@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,10 +14,10 @@ public class MainHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
         Debug.Log("[Main] OnEnterScene");
     }
 
-    public Task ProcessOnEnterScene()
+    public Awaitable ProcessOnEnterScene()
     {
         Debug.Log("[Main] ProcessOnEnterScene");
-        return Task.CompletedTask;
+        return AwaitableUtility.Completed;
     }
 
     public void OnExitScene()
@@ -26,10 +25,10 @@ public class MainHandler : MonoBehaviour, ISceneHandler, ILoadingProgress
         Debug.Log("[Main] OnExitScene");
     }
 
-    public Task ProcessOnExitScene()
+    public Awaitable ProcessOnExitScene()
     {
         Debug.Log("[Main] ProcessOnExitScene");
-        return Task.CompletedTask;
+        return AwaitableUtility.Completed;
     }
     
     public void OnProgress(float progress)

@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using DarkNaku.Director;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -15,19 +14,19 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingPro
         Debug.Log($"[SecondScene] OnEnterScene : {x}");
     }
 
-    public async Task ProcessOnEnterScene() {
+    public async Awaitable ProcessOnEnterScene() {
         Debug.Log("[SecondScene] ProcessOnEnterScene");
         var ao = Addressables.LoadSceneAsync("SubScene", LoadSceneMode.Additive);
-        while (!ao.IsDone) await Task.Yield();
+        while (!ao.IsDone) await Awaitable.NextFrameAsync();
     }
 
     public void OnExitScene() {
         Debug.Log("[SecondScene] OnExitScene");
     }
 
-    public Task ProcessOnExitScene() {
+    public Awaitable ProcessOnExitScene() {
         Debug.Log("[SecondScene] ProcessOnExitScene");
-        return Task.CompletedTask;
+        return AwaitableUtility.Completed;
     }
     
     public void OnClickWithLoading() {
@@ -49,7 +48,7 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingPro
         _curtain.color = Color.black;
     }
     
-    public async Task TransitionIn(string fromSceneName, string toSceneName) {
+    public async Awaitable TransitionIn(string fromSceneName, string toSceneName) {
         await Fade(Color.black, new Color(0f, 0f, 0f, 0f), 0.5f);
     }
     
@@ -57,11 +56,11 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingPro
         _curtain.color = Color.clear;
     }
 
-    public async Task TransitionOut(string fromSceneName, string toSceneName) {
+    public async Awaitable TransitionOut(string fromSceneName, string toSceneName) {
         await Fade(new Color(0f, 0f, 0f, 0f), Color.black, 0.5f);
     }
 
-    private async Task Fade(Color start, Color end, float duration) {
+    private async Awaitable Fade(Color start, Color end, float duration) {
         var elapsed = 0f;
 
         while (elapsed < duration) {
@@ -71,7 +70,7 @@ public class SecondSceneHandler : MonoBehaviour, ISceneHandler<int>, ILoadingPro
 
             _curtain.color = Color.Lerp(start, end, t);
 
-            await Task.Yield();
+            await Awaitable.NextFrameAsync();
         }
 
         _curtain.color = end;

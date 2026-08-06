@@ -1,7 +1,7 @@
 # Director
 
-![Version](https://img.shields.io/badge/version-0.6.6-blue)
-![Unity](https://img.shields.io/badge/Unity-2018.3%2B-black?logo=unity)
+![Version](https://img.shields.io/badge/version-0.7.0-blue)
+![Unity](https://img.shields.io/badge/Unity-6000.0%2B-black?logo=unity)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-DarkNaku-orange)
 ![Platform](https://img.shields.io/badge/platform-All-lightgrey)
@@ -83,7 +83,7 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler {
         // 씬 진입 시 동기 초기화
     }
 
-    public async Task ProcessOnEnterScene() {
+    public async Awaitable ProcessOnEnterScene() {
         // 씬 진입 직후 Director가 완료를 대기하는 비동기 작업 (선택)
         await LoadAssetsAsync();
     }
@@ -92,7 +92,7 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler {
         // 씬 퇴장 시 동기 정리
     }
 
-    public async Task ProcessOnExitScene() {
+    public async Awaitable ProcessOnExitScene() {
         // 씬 퇴장 직전 Director가 완료를 대기하는 비동기 작업 (선택)
         await SaveAsync();
     }
@@ -115,7 +115,7 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler<int> {
     }
 
     // 비동기 초기화가 필요하면 ProcessOnEnterScene에서 처리
-    public Task ProcessOnEnterScene() => Task.CompletedTask;
+    public Awaitable ProcessOnEnterScene() => AwaitableUtility.Completed;
 }
 ```
 
@@ -131,7 +131,7 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler, ISceneTransition {
         _curtain.color = Color.black;
     }
 
-    public async Task TransitionIn(string from, string to) {
+    public async Awaitable TransitionIn(string from, string to) {
         // 페이드 인 (검정 → 투명)
         await Fade(Color.black, Color.clear, 0.5f);
     }
@@ -140,7 +140,7 @@ public class MySceneHandler : MonoBehaviour, ISceneHandler, ISceneTransition {
         _curtain.color = Color.clear;
     }
 
-    public async Task TransitionOut(string from, string to) {
+    public async Awaitable TransitionOut(string from, string to) {
         // 페이드 아웃 (투명 → 검정)
         await Fade(Color.clear, Color.black, 0.5f);
     }

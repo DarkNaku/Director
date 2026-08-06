@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+using UnityEngine;
 
 namespace DarkNaku.Director {
     /// <summary>
@@ -26,9 +26,9 @@ namespace DarkNaku.Director {
         /// </summary>
         /// <param name="fromSceneName">이전 씬 이름. 첫 씬 진입 시 null.</param>
         /// <param name="toSceneName">진입할 씬 이름.</param>
-        /// <returns>애니메이션 완료를 나타내는 Task.</returns>
-        Task TransitionIn(string fromSceneName, string toSceneName) {
-            return Task.CompletedTask;
+        /// <returns>애니메이션 완료를 나타내는 Awaitable.</returns>
+        Awaitable TransitionIn(string fromSceneName, string toSceneName) {
+            return AwaitableUtility.Completed;
         }
 
         /// <summary>
@@ -36,9 +36,9 @@ namespace DarkNaku.Director {
         /// </summary>
         /// <param name="fromSceneName">현재 씬 이름.</param>
         /// <param name="toSceneName">전환할 대상 씬 이름.</param>
-        /// <returns>애니메이션 완료를 나타내는 Task.</returns>
-        Task TransitionOut(string fromSceneName, string toSceneName) {
-            return Task.CompletedTask;
+        /// <returns>애니메이션 완료를 나타내는 Awaitable.</returns>
+        Awaitable TransitionOut(string fromSceneName, string toSceneName) {
+            return AwaitableUtility.Completed;
         }
     }
 }

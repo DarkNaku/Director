@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
@@ -191,12 +190,12 @@ namespace DarkNaku.Director {
         /// <summary>
         /// 최초 로드된 씬의 진입 라이프사이클(OnEnterScene → TransitionIn)을 실행합니다.
         /// </summary>
-        private static async Task EnterFirstScene() {
+        private static async Awaitable EnterFirstScene() {
             var scene = new SceneContext(SceneManager.GetActiveScene());
 
             EnableEventSystem(scene.EventSystem, false);
             scene.Handler?.OnEnterScene();
-            await (scene.Handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
+            if (scene.Handler != null) await scene.Handler.ProcessOnEnterScene();
             await TransitionInAsync(scene.Handler, scene.Transition, null, scene.Name);
             EnableEventSystem(scene.EventSystem, true);
 
@@ -211,7 +210,7 @@ namespace DarkNaku.Director {
         /// 씬 전환 흐름을 시작합니다. 로딩 씬이 설정되어 있으면 로딩 씬을 먼저 진입한 뒤 대상 씬을 로드합니다.
         /// </summary>
         /// <param name="nextScene">전환할 대상 씬 이름.</param>
-        private async Task ChangeAsync(string nextScene) {
+        private async Awaitable ChangeAsync(string nextScene) {
             if (_changing) return;
 
             _changing = true;
@@ -222,7 +221,7 @@ namespace DarkNaku.Director {
             var currentContext = new SceneContext(SceneManager.GetActiveScene());
 
             EnableEventSystem(currentContext.EventSystem, false);
-            await Task.Yield();
+            await Awaitable.NextFrameAsync();
 
             if (_loadingScene != null) {
                 currentContext = await ChangeToLoadingSceneAsync(nextScene, currentContext);
@@ -239,13 +238,13 @@ namespace DarkNaku.Director {
         /// <param name="nextScene">최종 전환 대상 씬 이름.</param>
         /// <param name="current">현재 씬 컨텍스트.</param>
         /// <returns>진입 완료된 로딩 씬의 컨텍스트.</returns>
-        private async Task<SceneContext> ChangeToLoadingSceneAsync(string nextScene, SceneContext current) {
+        private async Awaitable<SceneContext> ChangeToLoadingSceneAsync(string nextScene, SceneContext current) {
             var op = SceneManager.LoadSceneAsync(_loadingScene);
             op.allowSceneActivation = false;
 
             await WaitForPreloadAsync(op);
             await TransitionOutAsync(current.Handler, current.Transition, current.Name, nextScene);
-            await (current.Handler?.ProcessOnExitScene() ?? Task.CompletedTask);
+            if (current.Handler != null) await current.Handler.ProcessOnExitScene();
             current.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
@@ -253,7 +252,7 @@ namespace DarkNaku.Director {
             SceneManager.SetActiveScene(SceneManager.GetSceneByName(_loadingScene));
 
             loadingContext.Handler?.OnEnterScene();
-            await (loadingContext.Handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
+            if (loadingContext.Handler != null) await loadingContext.Handler.ProcessOnEnterScene();
             await TransitionInAsync(loadingContext.Handler, loadingContext.Transition, current.Name, nextScene);
 
             return loadingContext;
@@ -265,13 +264,13 @@ namespace DarkNaku.Director {
         /// </summary>
         /// <param name="nextScene">전환할 대상 씬 이름.</param>
         /// <param name="prev">이전 씬(또는 로딩 씬) 컨텍스트.</param>
-        private async Task ChangeToNextSceneAsync(string nextScene, SceneContext prev) {
+        private async Awaitable ChangeToNextSceneAsync(string nextScene, SceneContext prev) {
             var op = SceneManager.LoadSceneAsync(nextScene);
             op.allowSceneActivation = false;
 
             await ReportProgressAsync(op, prev.Progress);
             await TransitionOutAsync(prev.Handler, prev.Transition, prev.Name, nextScene);
-            await (prev.Handler?.ProcessOnExitScene() ?? Task.CompletedTask);
+            if (prev.Handler != null) await prev.Handler.ProcessOnExitScene();
             prev.Handler?.OnExitScene();
             await ActivateSceneAsync(op);
 
@@ -343,7 +342,7 @@ namespace DarkNaku.Director {
         /// 트랜지션 아웃 전체 라이프사이클을 실행합니다.
         /// OnBeforeTransitionOut → PrepareTransitionOut → TransitionOut → OnAfterTransitionOut.
         /// </summary>
-        private static async Task TransitionOutAsync(
+        private static async Awaitable TransitionOutAsync(
                 ISceneHandler handler, ISceneTransition transition, string from, string to) {
             if (transition == null) return;
 
@@ -357,7 +356,7 @@ namespace DarkNaku.Director {
         /// 트랜지션 인 전체 라이프사이클을 실행합니다.
         /// OnBeforeTransitionIn → PrepareTransitionIn → TransitionIn → OnAfterTransitionIn.
         /// </summary>
-        private static async Task TransitionInAsync(
+        private static async Awaitable TransitionInAsync(
                 ISceneHandler handler, ISceneTransition transition, string from, string to) {
             if (transition == null) return;
 
@@ -383,7 +382,7 @@ namespace DarkNaku.Director {
         /// 트랜지션 인의 실행 단계만 완료합니다. OnEnterScene 호출 후에 사용됩니다.
         /// TransitionIn → OnAfterTransitionIn.
         /// </summary>
-        private static async Task FinishTransitionInAsync(
+        private static async Awaitable FinishTransitionInAsync(
                 ISceneHandler handler, ISceneTransition transition, string from, string to) {
             if (transition == null) return;
 
@@ -399,17 +398,17 @@ namespace DarkNaku.Director {
         /// 씬 비동기 로드가 활성화 대기 상태(progress 0.9)에 도달할 때까지 대기합니다.
         /// </summary>
         /// <param name="op">씬 로드 AsyncOperation.</param>
-        private static async Task WaitForPreloadAsync(AsyncOperation op) {
-            while (op.progress < 0.9f) await Task.Yield();
+        private static async Awaitable WaitForPreloadAsync(AsyncOperation op) {
+            while (op.progress < 0.9f) await Awaitable.NextFrameAsync();
         }
 
         /// <summary>
         /// 씬 활성화를 허용하고 완전히 로드될 때까지 대기합니다.
         /// </summary>
         /// <param name="op">씬 로드 AsyncOperation.</param>
-        private static async Task ActivateSceneAsync(AsyncOperation op) {
+        private static async Awaitable ActivateSceneAsync(AsyncOperation op) {
             op.allowSceneActivation = true;
-            while (!op.isDone) await Task.Yield();
+            while (!op.isDone) await Awaitable.NextFrameAsync();
         }
 
         /// <summary>
@@ -418,7 +417,7 @@ namespace DarkNaku.Director {
         /// </summary>
         /// <param name="op">씬 로드 AsyncOperation.</param>
         /// <param name="progress">진행률 수신자. null이면 대기만 수행합니다.</param>
-        private async Task ReportProgressAsync(AsyncOperation op, ILoadingProgress progress) {
+        private async Awaitable ReportProgressAsync(AsyncOperation op, ILoadingProgress progress) {
             var startTime = Time.realtimeSinceStartup;
             var minEndTime = startTime + _minLoadingTime;
 
@@ -428,7 +427,7 @@ namespace DarkNaku.Director {
                     ? Mathf.Clamp01((Time.realtimeSinceStartup - startTime) / _minLoadingTime)
                     : 1f;
                 progress?.OnProgress(Mathf.Min(loadRatio, timeRatio));
-                await Task.Yield();
+                await Awaitable.NextFrameAsync();
             }
 
             progress?.OnProgress(1f);
@@ -445,7 +444,7 @@ namespace DarkNaku.Director {
         /// 없으면 파라미터 없는 <see cref="ISceneHandler.OnEnterScene"/>를 호출합니다.
         /// </summary>
         /// <param name="handler">대상 씬 핸들러.</param>
-        private async Task EnterSceneAsync(ISceneHandler handler) {
+        private async Awaitable EnterSceneAsync(ISceneHandler handler) {
             if (_enterDispatcher == null) {
                 handler?.OnEnterScene();
             } else {
@@ -454,7 +453,7 @@ namespace DarkNaku.Director {
                 dispatcher(handler);
             }
 
-            await (handler?.ProcessOnEnterScene() ?? Task.CompletedTask);
+            if (handler != null) await handler.ProcessOnEnterScene();
         }
 
         #endregion

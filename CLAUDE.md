@@ -4,12 +4,12 @@
 
 ## 프로젝트 개요
 
-**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.6.6)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
+**Director**는 씬 전환 시 시각 효과, 로딩 화면, 라이프사이클 이벤트를 관리하는 Unity 패키지 라이브러리(`com.darknaku.director` v0.7.0)입니다. Unity Package Manager의 Git URL을 통해 배포됩니다.
 
 ## Unity 환경
 
-- **Unity 버전**: 6000.3.9f1 (Unity 6)
-- **최소 지원 Unity**: 2018.3
+- **Unity 버전**: 6000.3.17f1 (Unity 6)
+- **최소 지원 Unity**: 6000.0 (Awaitable API 요구)
 - **렌더 파이프라인**: Universal Render Pipeline (URP)
 - **패키지 이름**: `com.darknaku.director`
 - **네임스페이스**: `DarkNaku.Director`
